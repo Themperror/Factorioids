@@ -173,6 +173,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 
 			//////////////
 			//scene handling
+			renderer->BeginDraw();
 			old = now;
 			now = std::chrono::high_resolution_clock::now();
 			delta = now - old;
@@ -180,10 +181,11 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 			switch (sceneState)
 			{
 				case SceneState::Menu:
+				{
 					if (!menu.get())
 					{
 						menu = std::make_unique<Menu>();
-						menu->Init();
+						menu->Init(*renderer);
 					}
 
 					Scene::Status status = menu->Update(deltaMs);
@@ -204,14 +206,14 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 					{
 						shouldQuit = true;
 					}
-
-					
+				}
 				break;
 				case SceneState::Game:
+				{
 					if (!game.get())
 					{
 						game = std::make_unique<Game>();
-						game->Init();
+						game->Init(*renderer);
 					}
 
 					Scene::Status status = game->Update(deltaMs);
@@ -232,9 +234,10 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 					{
 						shouldQuit = true;
 					}
-
+				}
 				break;
 			}
+			renderer->Present();
 			//////////////
 		}
 	}

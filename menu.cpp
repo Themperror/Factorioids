@@ -1,6 +1,6 @@
 #include "menu.h"
 
-void Menu::Init()
+void Menu::Init(Renderer& renderer)
 {
 
 }

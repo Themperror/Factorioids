@@ -5,7 +5,7 @@
 class Menu : Scene
 {
 public:
-	virtual void Init() final override;
+	virtual void Init(Renderer& renderer) final override;
 	virtual Scene::Status Update(double dt) final override;
 	virtual void Render(Renderer& renderer) final override;
 };

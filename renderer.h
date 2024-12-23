@@ -1,7 +1,17 @@
 #pragma once
 
+#define NOMINMAX
+#define NONEARFAR
+#define WIN32_LEAN_AND_MEAN
+
 #include <d3d11.h>
 #include <wrl.h>
+#include <DirectXMath.h>
+#include <vector>
+#include <array>
+#include <string>
+
+using namespace DirectX;
 
 #define FWD_DECL_HANDLE(name) struct name##__; typedef struct name##__ *name
 FWD_DECL_HANDLE(HWND);
@@ -9,16 +19,48 @@ FWD_DECL_HANDLE(HWND);
 template<class T>
 using ComPtr = Microsoft::WRL::ComPtr<T>;
 
+struct VertexBuffer
+{
+	ComPtr<ID3D11Buffer> buffer;
+	size_t currentVertexCount;
+	size_t maxVertexCount;
+};
+
 class Renderer
 {
 public:
 	bool Init(HWND& hwnd, size_t width, size_t height);
 	void Resize(size_t width, size_t height);
 
+	VertexBuffer CreateVertexBuffer(size_t vertexAmount, size_t vertexCapacity, size_t vertexSize);
+	void UpdateVertexBuffer(VertexBuffer& buffer, std::vector<XMFLOAT2>& vertices);
+
+	ID3D11PixelShader* GetAsteroidPixelShader();
+	ID3D11VertexShader* GetAsteroidVertexShader();
+	ID3D11PixelShader* GetUIPixelShader();
+	ID3D11VertexShader* GetUIVertexShader();
+
+	ComPtr<ID3D11ShaderResourceView> MakeTextureFrom(const std::string& filePath, bool isSrgb);
+
+	void Clear(float r, float g, float b, float a);
+	void BeginDraw();
+	void Draw(VertexBuffer& vertexBuffer, ID3D11PixelShader* pixelShader, ID3D11VertexShader* vertexShader, const std::vector<ID3D11ShaderResourceView*>& textures);
+	void Present();
+
 private:
+
+	UINT backBufferWidth{};
+	UINT backBufferHeight{};
+
 	ComPtr<ID3D11Device> device;
 	ComPtr<ID3D11DeviceContext> context;
 	ComPtr<IDXGISwapChain> swapchain;
+
+	ComPtr<ID3D11RenderTargetView> backBuffer;
+	ComPtr<ID3D11DepthStencilView> depthTarget;
+
+	ID3D11PixelShader* currentPS{};
+	ID3D11VertexShader* currentVS{};
 
 	ComPtr<ID3D11PixelShader> ui_pixelShader;
 	ComPtr<ID3D11VertexShader> ui_vertexShader;
