@@ -1,7 +1,5 @@
 #include "renderer.h"
 #include "fileutils.h"
-#include "print.h"
-#include "break.h"
 
 #define FREEIMAGE_LIB
 #include "FreeImage.h"
@@ -54,7 +52,7 @@ bool Renderer::Init(HWND& hwnd, size_t width, size_t height)
 		//UINT AlignedByteOffset;
 		//D3D11_INPUT_CLASSIFICATION InputSlotClass;
 		//UINT InstanceDataStepRate;
-		D3D11_INPUT_ELEMENT_DESC{"POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_CLASSIFICATION::D3D11_INPUT_PER_VERTEX_DATA, 0},
+		D3D11_INPUT_ELEMENT_DESC{"POS", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_CLASSIFICATION::D3D11_INPUT_PER_VERTEX_DATA, 0},
 	};
 
 	{
@@ -123,7 +121,7 @@ bool Renderer::Init(HWND& hwnd, size_t width, size_t height)
 		device->CreateRasterizerState(&rasterDesc, rasterState.GetAddressOf());
 
 		D3D11_BLEND_DESC blendDesc{};
-		blendDesc.RenderTarget[0].BlendEnable = true;
+		blendDesc.RenderTarget[0].BlendEnable = false;
 		blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
 		blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
 		blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
@@ -139,7 +137,10 @@ bool Renderer::Init(HWND& hwnd, size_t width, size_t height)
 		samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
 		samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
 		samplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-		samplerDesc.Filter = D3D11_FILTER_COMPARISON_MIN_MAG_POINT_MIP_LINEAR;
+		samplerDesc.MaxAnisotropy = 16;
+		samplerDesc.MinLOD = -D3D11_FLOAT32_MAX;
+		samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+		samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
 		device->CreateSamplerState(&samplerDesc,samplerState.GetAddressOf());
 	}
 	//////////////////
@@ -196,6 +197,7 @@ VertexBuffer Renderer::CreateVertexBuffer(size_t vertexAmount, size_t vertexCapa
 	VertexBuffer buffer{};
 	buffer.maxVertexCount = vertexCapacity;
 	buffer.currentVertexCount = vertexAmount;
+	buffer.stride = vertexSize;
 	
 	D3D11_BUFFER_DESC desc{};
 	desc.ByteWidth = static_cast<UINT>(vertexSize * buffer.maxVertexCount);
@@ -206,26 +208,6 @@ VertexBuffer Renderer::CreateVertexBuffer(size_t vertexAmount, size_t vertexCapa
 	device->CreateBuffer(&desc, nullptr, buffer.buffer.GetAddressOf());
 
 	return buffer;
-}
-
-void Renderer::UpdateVertexBuffer(VertexBuffer& buffer, std::vector<XMFLOAT2>& vertices)
-{
-	if (vertices.size() > buffer.maxVertexCount)
-	{
-		buffer = CreateVertexBuffer(vertices.size(), vertices.size() * 2, sizeof(XMFLOAT2));
-	}
-	
-	D3D11_MAPPED_SUBRESOURCE ms;
-	if (context->Map(buffer.buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &ms) == S_OK)
-	{
-		memcpy(ms.pData,vertices.data(), vertices.size() * sizeof(XMFLOAT2));
-		context->Unmap(buffer.buffer.Get(), 0);
-	}
-	else
-	{
-		Util::Print("Failed to map vertex buffer! Count: %llu, Size: %llu", vertices.size(), vertices.size() * sizeof(XMFLOAT2));
-		Util::Break();
-	}
 }
 
 ID3D11PixelShader* Renderer::GetAsteroidPixelShader()
@@ -253,39 +235,40 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureFrom(const std::string& fi
 	FIBITMAP* image;
 	{
 		std::vector<uint8_t> fileData = Util::ReadFileToVector(filePath);
-		FIMEMORY* mem = FreeImage_OpenMemory(fileData.data(),fileData.size());
+		FIMEMORY* mem = FreeImage_OpenMemory(fileData.data(), fileData.size());
 		FREE_IMAGE_FORMAT format = FreeImage_GetFileTypeFromMemory(mem);
-		if(format == FREE_IMAGE_FORMAT::FIF_UNKNOWN)
+		if (format == FREE_IMAGE_FORMAT::FIF_UNKNOWN)
 			return {};
 
 		image = FreeImage_LoadFromMemory(format, mem);
 		FreeImage_CloseMemory(mem);
 	}
 	image = FreeImage_ConvertTo32Bits(image);
+
 	BYTE* bits = FreeImage_GetBits(image);
 	uint32_t height = FreeImage_GetHeight(image);
 	uint32_t width = FreeImage_GetWidth(image);
-	
+
 	D3D11_SUBRESOURCE_DATA initialData{};
 	initialData.pSysMem = bits;
 	initialData.SysMemPitch = width * 4;
 
 	D3D11_TEXTURE2D_DESC texDesc{};
-	
+
 	texDesc.Format = isSrgb ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
 	texDesc.ArraySize = 1;
 	texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 	texDesc.Usage = D3D11_USAGE_IMMUTABLE;
 	texDesc.Height = height;
-	texDesc.Width =width;
+	texDesc.Width = width;
 	texDesc.SampleDesc.Count = 1;
 	//TODO generate mips
 	texDesc.MipLevels = 1;
-	
+
 	ComPtr<ID3D11Texture2D> newTexture;
-	HRESULT res = device->CreateTexture2D(&texDesc,&initialData, newTexture.GetAddressOf() );
+	HRESULT res = device->CreateTexture2D(&texDesc, &initialData, newTexture.GetAddressOf());
 	FreeImage_Unload(image);
-	if(res != S_OK)
+	if (res != S_OK)
 		return {};
 
 	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc{};
@@ -298,6 +281,83 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureFrom(const std::string& fi
 	if (res != S_OK)
 		return {};
 
+	return newSRV;
+}
+
+ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureArrayFrom(const std::vector<std::string>& filePath, bool isSrgb)
+{
+	UINT textureWidth{}, textureHeight{};
+	uint32_t imageSize{};
+	std::vector<uint8_t> data;
+
+	for (size_t i = 0; i < filePath.size(); i++)
+	{
+		FIBITMAP* image;
+		{
+			std::vector<uint8_t> fileData = Util::ReadFileToVector(filePath[i]);
+			FIMEMORY* mem = FreeImage_OpenMemory(fileData.data(), fileData.size());
+			FREE_IMAGE_FORMAT format = FreeImage_GetFileTypeFromMemory(mem);
+			if (format == FREE_IMAGE_FORMAT::FIF_UNKNOWN)
+				return {};
+
+			image = FreeImage_LoadFromMemory(format, mem);
+			FreeImage_CloseMemory(mem);
+		}
+		image = FreeImage_ConvertTo32Bits(image);
+
+		BYTE* bits = FreeImage_GetBits(image);
+		textureHeight = FreeImage_GetHeight(image);
+		textureWidth = FreeImage_GetWidth(image);
+
+		imageSize = textureHeight * textureWidth * 4;
+		if (data.size() == 0)
+		{
+			data.resize(imageSize * filePath.size());
+		}
+		memcpy(data.data() + (imageSize * i), bits, imageSize );
+		FreeImage_Unload(image);
+	}
+
+
+	std::vector<D3D11_SUBRESOURCE_DATA> initialData;
+	initialData.resize(filePath.size());
+	for (size_t i = 0; i < filePath.size(); i++)
+	{
+		initialData[i].pSysMem = data.data() + imageSize * i;
+		initialData[i].SysMemPitch = textureWidth * 4;
+		initialData[i].SysMemSlicePitch = 0;
+	}
+
+	D3D11_TEXTURE2D_DESC texDesc{};
+
+	texDesc.Format = isSrgb ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
+	texDesc.ArraySize = filePath.size();
+	texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	texDesc.Usage = D3D11_USAGE_IMMUTABLE;
+	texDesc.Height = textureHeight;
+	texDesc.Width = textureWidth;
+	texDesc.SampleDesc.Count = 1;
+
+	//TODO generate mips
+	texDesc.MipLevels = 1;
+
+	ComPtr<ID3D11Texture2D> newTexture;
+	HRESULT res = device->CreateTexture2D(&texDesc, initialData.data(), newTexture.GetAddressOf());
+	if (res != S_OK)
+		return {};
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+	srvDesc.Format = isSrgb ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
+	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
+	srvDesc.Texture2DArray.MipLevels = 1;
+	srvDesc.Texture2DArray.ArraySize = filePath.size();
+	srvDesc.Texture2DArray.FirstArraySlice = 0;
+	srvDesc.Texture2DArray.MostDetailedMip = 0;
+	ComPtr<ID3D11ShaderResourceView> newSRV;
+	res = device->CreateShaderResourceView(newTexture.Get(), &srvDesc, newSRV.GetAddressOf());
+
+	if (res != S_OK)
+		return {};
 	return newSRV;
 }
 
@@ -338,9 +398,8 @@ void Renderer::Draw(VertexBuffer& vertexBuffer, ID3D11PixelShader* pixelShader, 
 
 	context->PSSetShaderResources(0, textures.size(), textures.data());
 
-	UINT stride = sizeof(XMFLOAT2);
 	UINT offset = 0;
-	context->IASetVertexBuffers(0,1, vertexBuffer.buffer.GetAddressOf(), &stride, &offset);
+	context->IASetVertexBuffers(0,1, vertexBuffer.buffer.GetAddressOf(), &vertexBuffer.stride, &offset);
 	context->Draw(vertexBuffer.currentVertexCount, 0);
 }
 

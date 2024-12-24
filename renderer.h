@@ -10,6 +10,8 @@
 #include <vector>
 #include <array>
 #include <string>
+#include "print.h"
+#include "break.h"
 
 using namespace DirectX;
 
@@ -24,6 +26,7 @@ struct VertexBuffer
 	ComPtr<ID3D11Buffer> buffer;
 	size_t currentVertexCount;
 	size_t maxVertexCount;
+	UINT stride;
 };
 
 class Renderer
@@ -33,7 +36,27 @@ public:
 	void Resize(size_t width, size_t height);
 
 	VertexBuffer CreateVertexBuffer(size_t vertexAmount, size_t vertexCapacity, size_t vertexSize);
-	void UpdateVertexBuffer(VertexBuffer& buffer, std::vector<XMFLOAT2>& vertices);
+
+	template<typename T>
+	void UpdateVertexBuffer(VertexBuffer& buffer, std::vector<T>& vertices) 
+	{
+		if (vertices.size() > buffer.maxVertexCount)
+		{
+			buffer = CreateVertexBuffer(vertices.size(), vertices.size() * 2, sizeof(T));
+		}
+
+		D3D11_MAPPED_SUBRESOURCE ms;
+		if (context->Map(buffer.buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &ms) == S_OK)
+		{
+			memcpy(ms.pData, vertices.data(), vertices.size() * sizeof(T));
+			context->Unmap(buffer.buffer.Get(), 0);
+		}
+		else
+		{
+			Util::Print("Failed to map vertex buffer! Count: %llu, Size: %llu", vertices.size(), vertices.size() * sizeof(T));
+			Util::Break();
+		}
+	}
 
 	ID3D11PixelShader* GetAsteroidPixelShader();
 	ID3D11VertexShader* GetAsteroidVertexShader();
@@ -41,6 +64,7 @@ public:
 	ID3D11VertexShader* GetUIVertexShader();
 
 	ComPtr<ID3D11ShaderResourceView> MakeTextureFrom(const std::string& filePath, bool isSrgb);
+	ComPtr<ID3D11ShaderResourceView> MakeTextureArrayFrom(const std::vector<std::string>& filePath, bool isSrgb);
 
 	void Clear(float r, float g, float b, float a);
 	void BeginDraw();

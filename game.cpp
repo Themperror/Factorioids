@@ -1,6 +1,7 @@
 #include "game.h"
 #include "renderer.h"
 #include "asteroid.h"
+#include "fileutils.h"
 
 void Game::Init(Renderer& renderer)
 {
@@ -12,11 +13,46 @@ void Game::Init(Renderer& renderer)
 		asteroids[i].rot = rand() % 360;
 	}
 
-	for (size_t i = 1; i < 8; i++)
+	std::vector<std::string> diffuseNames;
+	std::vector<std::string> normalNames;
+	std::vector<std::string> roughnessNames;
+
+	std::array<const char*, AsteroidCategory::ENUM_MAX> categoryStrings = {"small", "medium", "big", "huge"};
+	std::array<const char*, AsteroidType::ENUM_MAX> typeStrings = {"carbonic", "metallic", "oxide", "promethium"};
+
+
+	const char* factorioAsteroidPath = "C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/space-age/graphics/entity/asteroid/";
+
+	char buf[512];
+	for (size_t i = 0; i < AsteroidType::ENUM_MAX; i++)
 	{
-		asteroidTexturesDiffuse.push_back( renderer.MakeTextureFrom("C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/space-age/graphics/entity/asteroid/carbonic/huge/asteroid-carbonic-huge-colour-0" + std::to_string(i) + ".png", true));
-		asteroidTexturesNormal.push_back( renderer.MakeTextureFrom("C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/space-age/graphics/entity/asteroid/carbonic/huge/asteroid-carbonic-huge-normal-0" + std::to_string(i) + ".png", false) );
-		asteroidTexturesRoughness.push_back( renderer.MakeTextureFrom("C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/space-age/graphics/entity/asteroid/carbonic/huge/asteroid-carbonic-huge-roughness-0" + std::to_string(i) + ".png", false) );
+		for (size_t j = 0; j < AsteroidCategory::ENUM_MAX; j++)
+		{
+			sprintf_s(buf, sizeof(buf), "%s%s/%s/", factorioAsteroidPath, typeStrings[i], categoryStrings[j]);
+			std::vector<std::string> files = Util::LoadFilesFromDirectory(buf);
+			files.erase(std::remove_if(files.begin(),files.end(),[](auto& a){return a.find("colour") == std::string::npos;}), files.end());
+			for (size_t k = 0; k < files.size(); k++)
+			{
+				sprintf_s(buf, sizeof(buf), "%s%s/%s/asteroid-%s-%s-colour-0%i.png", factorioAsteroidPath, typeStrings[i], categoryStrings[j], typeStrings[i], categoryStrings[j], k+1);
+				diffuseNames.push_back(buf);
+				sprintf_s(buf, sizeof(buf), "%s%s/%s/asteroid-%s-%s-normal-0%i.png", factorioAsteroidPath, typeStrings[i], categoryStrings[j], typeStrings[i], categoryStrings[j], k+1);
+				normalNames.push_back(buf);
+				sprintf_s(buf, sizeof(buf), "%s%s/%s/asteroid-%s-%s-roughness-0%i.png", factorioAsteroidPath, typeStrings[i], categoryStrings[j], typeStrings[i], categoryStrings[j], k+1);
+				roughnessNames.push_back(buf);
+			}
+
+			asteroidTexturesDiffuse[j][i] = renderer.MakeTextureArrayFrom(diffuseNames, true);
+			asteroidTexturesNormal[j][i] = renderer.MakeTextureArrayFrom(normalNames, false);
+			asteroidTexturesRoughness[j][i] = renderer.MakeTextureArrayFrom(roughnessNames, false);
+
+			diffuseNames.clear();
+			normalNames.clear();
+			roughnessNames.clear();
+		}
+	}
+
+	for (size_t i = 0; i < AsteroidType::ENUM_MAX; i++)
+	{
 	}
 }
 
@@ -36,11 +72,11 @@ void Game::Render(Renderer& renderer)
 	if (!asteroidVertices.buffer)
 	{
 		//keep some small minimum size
-		asteroidVertices = renderer.CreateVertexBuffer( asteroids.size()*6, std::max(asteroids.size()*6, 4096llu), sizeof(XMFLOAT2));
+		asteroidVertices = renderer.CreateVertexBuffer( asteroids.size()*6, std::max(asteroids.size()*6, 4096llu), sizeof(XMFLOAT3));
 	}
 
 	{
-		std::vector<XMFLOAT2> newBufferData;
+		std::vector<XMFLOAT3> newBufferData;
 		newBufferData.reserve(asteroids.size() * 6);
 		for (size_t i = 0; i < asteroids.size(); i++)
 		{
@@ -48,44 +84,50 @@ void Game::Render(Renderer& renderer)
 
 			XMVECTOR pos = XMLoadFloat2(&asteroid.pos);
 			XMMATRIX TRS = XMMatrixTransformation2D(XMVectorZero(),0, XMVectorSplatOne(), XMVectorZero(), asteroid.rot, pos);
-			newBufferData.push_back(XMFLOAT2(-(asteroid.size), +(asteroid.size)));
-			newBufferData.push_back(XMFLOAT2(+(asteroid.size), +(asteroid.size)));
-			newBufferData.push_back(XMFLOAT2(-(asteroid.size), -(asteroid.size)));
+			newBufferData.push_back(XMFLOAT3(-(asteroid.size), +(asteroid.size), 0));
+			newBufferData.push_back(XMFLOAT3(+(asteroid.size), +(asteroid.size), 0));
+			newBufferData.push_back(XMFLOAT3(-(asteroid.size), -(asteroid.size), 0));
+																				 
+			newBufferData.push_back(XMFLOAT3(+(asteroid.size), +(asteroid.size), 0));
+			newBufferData.push_back(XMFLOAT3(+(asteroid.size), -(asteroid.size), 0));
+			newBufferData.push_back(XMFLOAT3(-(asteroid.size), -(asteroid.size), 0));
 
-			newBufferData.push_back(XMFLOAT2(+(asteroid.size), +(asteroid.size)));
-			newBufferData.push_back(XMFLOAT2(+(asteroid.size), -(asteroid.size)));
-			newBufferData.push_back(XMFLOAT2(-(asteroid.size), -(asteroid.size)));
-
-			XMVECTOR posTL = XMLoadFloat2(&newBufferData[i*6+0]);
-			XMVECTOR posTR = XMLoadFloat2(&newBufferData[i*6+1]);
-			XMVECTOR posBL = XMLoadFloat2(&newBufferData[i*6+2]);
-			XMVECTOR posBR = XMLoadFloat2(&newBufferData[i*6+4]);
-
+			XMVECTOR posTL = XMLoadFloat3(&newBufferData[i*6+0]);
+			XMVECTOR posTR = XMLoadFloat3(&newBufferData[i*6+1]);
+			XMVECTOR posBL = XMLoadFloat3(&newBufferData[i*6+2]);
+			XMVECTOR posBR = XMLoadFloat3(&newBufferData[i*6+4]);
 
 			posTL = XMVector2Transform(XMVector2Transform(posTL, TRS), ortho);
 			posTR = XMVector2Transform(XMVector2Transform(posTR, TRS), ortho);
 			posBL = XMVector2Transform(XMVector2Transform(posBL, TRS), ortho);
 			posBR = XMVector2Transform(XMVector2Transform(posBR, TRS), ortho);
 
+			XMStoreFloat3(&newBufferData[i*6+0], posTL);
+			XMStoreFloat3(&newBufferData[i*6+1], posTR);
+			XMStoreFloat3(&newBufferData[i*6+2], posBL);
+			XMStoreFloat3(&newBufferData[i*6+3], posTR);
+			XMStoreFloat3(&newBufferData[i*6+4], posBR);
+			XMStoreFloat3(&newBufferData[i*6+5], posBL);
 
-			XMStoreFloat2(&newBufferData[i*6+0], posTL);
-			XMStoreFloat2(&newBufferData[i*6+1], posTR);
-			XMStoreFloat2(&newBufferData[i*6+2], posBL);
-			XMStoreFloat2(&newBufferData[i*6+3], posTR);
-			XMStoreFloat2(&newBufferData[i*6+4], posBR);
-			XMStoreFloat2(&newBufferData[i*6+5], posBL);
+			//Have to set rotation value, as the Vector2 transforms get rid of Z
+			newBufferData[i * 6 + 0].z = asteroid.rot;
+			newBufferData[i * 6 + 1].z = asteroid.rot;
+			newBufferData[i * 6 + 2].z = asteroid.rot;
+			newBufferData[i * 6 + 3].z = asteroid.rot;
+			newBufferData[i * 6 + 4].z = asteroid.rot;
+			newBufferData[i * 6 + 5].z = asteroid.rot;
 		}
 
 		renderer.UpdateVertexBuffer(asteroidVertices, newBufferData);
 	}
 	
-	renderer.Clear(0,0,0,1);
+	renderer.Clear(0.025,0.025,0.025,1);
 
 	std::vector<ID3D11ShaderResourceView*> srvs = 
 	{
-		asteroidTexturesDiffuse[0].Get(),
-		asteroidTexturesNormal[0].Get(),
-		asteroidTexturesRoughness[0].Get(),
+		asteroidTexturesDiffuse[3][0].Get(),
+		asteroidTexturesNormal[3][0].Get(),
+		asteroidTexturesRoughness[3][0].Get(),
 	};
 
 	renderer.Draw( asteroidVertices, renderer.GetAsteroidPixelShader(), renderer.GetAsteroidVertexShader(), srvs);

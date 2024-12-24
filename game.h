@@ -16,7 +16,7 @@ public:
 private:
 	std::vector<Asteroid> asteroids;
 	VertexBuffer asteroidVertices;
-	std::vector<ComPtr<ID3D11ShaderResourceView>> asteroidTexturesDiffuse;
-	std::vector<ComPtr<ID3D11ShaderResourceView>> asteroidTexturesNormal;
-	std::vector<ComPtr<ID3D11ShaderResourceView>> asteroidTexturesRoughness;
+	std::array<std::array<ComPtr<ID3D11ShaderResourceView>, AsteroidType::ENUM_MAX>,AsteroidCategory::ENUM_MAX> asteroidTexturesDiffuse;
+	std::array<std::array<ComPtr<ID3D11ShaderResourceView>, AsteroidType::ENUM_MAX>,AsteroidCategory::ENUM_MAX> asteroidTexturesNormal;
+	std::array<std::array<ComPtr<ID3D11ShaderResourceView>, AsteroidType::ENUM_MAX>,AsteroidCategory::ENUM_MAX> asteroidTexturesRoughness;
 };

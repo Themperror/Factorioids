@@ -4,10 +4,10 @@ struct VS_OUT
 	float2 uv : UV0;
 };
 
-VS_OUT main(float2 pos : POSITION, uint vertexID : SV_VertexID)
+VS_OUT main(float3 pos : POS, uint vertexID : SV_VertexID)
 {
 	VS_OUT vsOut;
-	vsOut.pos = float4(pos.x, pos.y, vertexID * 0.0001, 1.0);
+	vsOut.pos = float4(pos.x, pos.y, vertexID / 6, 1.0);
 	if (vertexID == 0)
 	{
 		vsOut.uv = float2(0, 0);
