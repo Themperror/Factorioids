@@ -46,14 +46,22 @@ bool Renderer::Init(HWND& hwnd, size_t width, size_t height)
 	
 	//////////////////
 	// Shaders & ILs
-	std::vector<D3D11_INPUT_ELEMENT_DESC> inputElements = {
-		//LPCSTR SemanticName;
-		//UINT SemanticIndex;
-		//DXGI_FORMAT Format;
-		//UINT InputSlot;
-		//UINT AlignedByteOffset;
-		//D3D11_INPUT_CLASSIFICATION InputSlotClass;
-		//UINT InstanceDataStepRate;
+
+
+	//LPCSTR SemanticName;
+	//UINT SemanticIndex;
+	//DXGI_FORMAT Format;
+	//UINT InputSlot;
+	//UINT AlignedByteOffset;
+	//D3D11_INPUT_CLASSIFICATION InputSlotClass;
+	//UINT InstanceDataStepRate;
+	std::vector<D3D11_INPUT_ELEMENT_DESC> asteroidInputElements = {
+		D3D11_INPUT_ELEMENT_DESC{"POS", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D11_INPUT_CLASSIFICATION::D3D11_INPUT_PER_VERTEX_DATA, 0},
+	};	
+	std::vector<D3D11_INPUT_ELEMENT_DESC> spriteInputElements = {
+		D3D11_INPUT_ELEMENT_DESC{"POS", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D11_INPUT_CLASSIFICATION::D3D11_INPUT_PER_VERTEX_DATA, 0},
+	};
+	std::vector<D3D11_INPUT_ELEMENT_DESC> UIInputElements = {
 		D3D11_INPUT_ELEMENT_DESC{"POS", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D11_INPUT_CLASSIFICATION::D3D11_INPUT_PER_VERTEX_DATA, 0},
 	};
 
@@ -61,11 +69,11 @@ bool Renderer::Init(HWND& hwnd, size_t width, size_t height)
 		std::vector<uint8_t> uiVS = Util::ReadFileToVector("ui_VS.cso");
 		if (uiVS.size() > 0)
 		{
-			res = device->CreateVertexShader(uiVS.data(), uiVS.size(), nullptr, ui_vertexShader.GetAddressOf());
+			res = device->CreateVertexShader(uiVS.data(), uiVS.size(), nullptr, UIMaterial.vertexShader.GetAddressOf());
 			if (res != S_OK)
 				return false;
 
-			res = device->CreateInputLayout(inputElements.data(), static_cast<UINT>(inputElements.size()), uiVS.data(), static_cast<UINT>(uiVS.size()), ui_inputLayout.GetAddressOf());
+			res = device->CreateInputLayout(UIInputElements.data(), static_cast<UINT>(UIInputElements.size()), uiVS.data(), static_cast<UINT>(uiVS.size()), UIMaterial.inputLayout.GetAddressOf());
 			if (res != S_OK)
 				return false;
 		}
@@ -74,7 +82,7 @@ bool Renderer::Init(HWND& hwnd, size_t width, size_t height)
 		std::vector<uint8_t> uiPS = Util::ReadFileToVector("ui_PS.cso");
 		if (uiPS.size() > 0)
 		{
-			res = device->CreatePixelShader(uiPS.data(), static_cast<UINT>(uiPS.size()), nullptr, ui_pixelShader.GetAddressOf());
+			res = device->CreatePixelShader(uiPS.data(), static_cast<UINT>(uiPS.size()), nullptr, UIMaterial.pixelShader.GetAddressOf());
 			if (res != S_OK)
 				return false;
 		}
@@ -83,11 +91,11 @@ bool Renderer::Init(HWND& hwnd, size_t width, size_t height)
 		std::vector<uint8_t> asteroidVS = Util::ReadFileToVector("asteroid_VS.cso");
 		if (asteroidVS.size() > 0)
 		{
-			res = device->CreateVertexShader(asteroidVS.data(), asteroidVS.size(), nullptr, asteroid_vertexShader.GetAddressOf());
+			res = device->CreateVertexShader(asteroidVS.data(), asteroidVS.size(), nullptr, asteroidMaterial.vertexShader.GetAddressOf());
 			if (res != S_OK)
 				return false;
 
-			res = device->CreateInputLayout(inputElements.data(), static_cast<UINT>(inputElements.size()), asteroidVS.data(), static_cast<UINT>(asteroidVS.size()), asteroid_inputLayout.GetAddressOf());
+			res = device->CreateInputLayout(asteroidInputElements.data(), static_cast<UINT>(asteroidInputElements.size()), asteroidVS.data(), static_cast<UINT>(asteroidVS.size()), asteroidMaterial.inputLayout.GetAddressOf());
 			if (res != S_OK)
 				return false;
 		}
@@ -96,7 +104,29 @@ bool Renderer::Init(HWND& hwnd, size_t width, size_t height)
 		std::vector<uint8_t> asteroidPS = Util::ReadFileToVector("asteroid_PS.cso");
 		if (asteroidPS.size() > 0)
 		{
-			res = device->CreatePixelShader(asteroidPS.data(), static_cast<UINT>(asteroidPS.size()), nullptr, asteroid_pixelShader.GetAddressOf());
+			res = device->CreatePixelShader(asteroidPS.data(), static_cast<UINT>(asteroidPS.size()), nullptr, asteroidMaterial.pixelShader.GetAddressOf());
+			if (res != S_OK)
+				return false;
+		}
+	}
+	{
+		std::vector<uint8_t> spriteVS = Util::ReadFileToVector("sprite_VS.cso");
+		if (spriteVS.size() > 0)
+		{
+			res = device->CreateVertexShader(spriteVS.data(), spriteVS.size(), nullptr, spriteMaterial.vertexShader.GetAddressOf());
+			if (res != S_OK)
+				return false;
+
+			res = device->CreateInputLayout(spriteInputElements.data(), static_cast<UINT>(spriteInputElements.size()), spriteVS.data(), static_cast<UINT>(spriteVS.size()), spriteMaterial.inputLayout.GetAddressOf());
+			if (res != S_OK)
+				return false;
+		}
+	}
+	{
+		std::vector<uint8_t> spritePS = Util::ReadFileToVector("sprite_PS.cso");
+		if (spritePS.size() > 0)
+		{
+			res = device->CreatePixelShader(spritePS.data(), static_cast<UINT>(spritePS.size()), nullptr, spriteMaterial.pixelShader.GetAddressOf());
 			if (res != S_OK)
 				return false;
 		}
@@ -212,28 +242,14 @@ VertexBuffer Renderer::CreateVertexBuffer(size_t vertexAmount, size_t vertexCapa
 	return buffer;
 }
 
-ID3D11PixelShader* Renderer::GetAsteroidPixelShader()
-{
-	return asteroid_pixelShader.Get();
-}
-
-ID3D11VertexShader* Renderer::GetAsteroidVertexShader()
-{
-	return asteroid_vertexShader.Get();
-}
-
-ID3D11PixelShader* Renderer::GetUIPixelShader()
-{
-	return ui_pixelShader.Get();
-}
-
-ID3D11VertexShader* Renderer::GetUIVertexShader()
-{
-	return ui_vertexShader.Get();
-}
-
 ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureFrom(const std::string& filePath, bool isSrgb)
 {
+	const auto& it = textureCache.find(filePath);
+	if (it != textureCache.end())
+	{
+		return it->second;
+	}
+
 	FIBITMAP* image;
 	{
 		std::vector<uint8_t> fileData = Util::ReadFileToVector(filePath);
@@ -283,11 +299,21 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureFrom(const std::string& fi
 	if (res != S_OK)
 		return {};
 
+	textureCache.emplace(filePath, newSRV);
 	return newSRV;
 }
 
 ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureArrayFrom(const std::vector<std::string>& filePath, bool isSrgb)
 {
+	for (size_t i = 0; i < filePath.size(); i++)
+	{
+		const auto& it = textureCache.find(filePath[i]);
+		if (it != textureCache.end())
+		{
+			return it->second;
+		}
+	}
+
 	UINT textureWidth{}, textureHeight{};
 	uint32_t imageSize{};
 	std::vector<uint8_t> data;
@@ -372,6 +398,11 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureArrayFrom(const std::vecto
 
 	if (res != S_OK)
 		return {};
+
+	for (size_t i = 0; i < filePath.size(); i++)
+	{
+		textureCache.emplace(filePath[i], newSRV);
+	}
 	return newSRV;
 }
 
@@ -386,7 +417,6 @@ void Renderer::BeginDraw()
 {
 	context->OMSetRenderTargets(1, backBuffer.GetAddressOf(), depthTarget.Get());
 	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	context->IASetInputLayout(asteroid_inputLayout.Get());
 	context->RSSetState(rasterState.Get());
 	const float blendFactor[4] = {1,1,1,1};
 	context->OMSetBlendState(blendState.Get(),blendFactor, 0xF);
@@ -398,23 +428,6 @@ void Renderer::BeginDraw()
 	viewPort.MinDepth = 0;
 	viewPort.MaxDepth = 1;
 	context->RSSetViewports(1, &viewPort);
-}
-
-void Renderer::Draw(VertexBuffer& vertexBuffer, ID3D11PixelShader* pixelShader, ID3D11VertexShader* vertexShader, const std::array<ID3D11ShaderResourceView*,3>& textures)
-{
-	if (currentPS != pixelShader)
-	{
-		currentPS = pixelShader;
-		currentVS = vertexShader;
-		context->PSSetShader(pixelShader, nullptr, 0);
-		context->VSSetShader(vertexShader, nullptr, 0);
-	}
-
-	context->PSSetShaderResources(0, textures.size(), textures.data());
-
-	UINT offset = 0;
-	context->IASetVertexBuffers(0,1, vertexBuffer.buffer.GetAddressOf(), &vertexBuffer.stride, &offset);
-	context->Draw(vertexBuffer.currentVertexCount, 0);
 }
 
 void Renderer::Present()

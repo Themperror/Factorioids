@@ -1,6 +1,8 @@
 #pragma once
 
 #include <DirectXMath.h>
+#include "sprite.h"
+
 namespace AsteroidType
 {
 	enum Type { Carbonic, Metallic, Oxide, Promethium, ENUM_MAX };
@@ -9,6 +11,12 @@ namespace AsteroidCategory
 {
 	enum Category { Small, Medium, Big, Huge, ENUM_MAX };
 }
+
+struct AsteroidExplosion : Sprite
+{
+	AsteroidCategory::Category category{};
+};
+
 struct Asteroid
 {
 	XMFLOAT2 pos {};

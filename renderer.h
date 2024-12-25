@@ -8,6 +8,7 @@
 #include <wrl.h>
 #include <DirectXMath.h>
 #include <vector>
+#include <unordered_map>
 #include <array>
 #include <string>
 #include "print.h"
@@ -27,6 +28,13 @@ struct VertexBuffer
 	size_t currentVertexCount;
 	size_t maxVertexCount;
 	UINT stride;
+};
+
+struct Material
+{
+	ComPtr<ID3D11PixelShader> pixelShader;
+	ComPtr<ID3D11VertexShader> vertexShader;
+	ComPtr<ID3D11InputLayout> inputLayout;
 };
 
 class Renderer
@@ -59,20 +67,49 @@ public:
 		buffer.currentVertexCount = vertices.size();
 	}
 
-	ID3D11PixelShader* GetAsteroidPixelShader();
-	ID3D11VertexShader* GetAsteroidVertexShader();
-	ID3D11PixelShader* GetUIPixelShader();
-	ID3D11VertexShader* GetUIVertexShader();
+	Material* GetAsteroidMaterial()
+	{
+		return &asteroidMaterial;
+	}
+
+	Material* GetSpriteMaterial()
+	{
+		return &spriteMaterial;
+	}
+
+	Material* GetUIMaterial()
+	{
+		return &UIMaterial;
+	}
+
 
 	ComPtr<ID3D11ShaderResourceView> MakeTextureFrom(const std::string& filePath, bool isSrgb);
 	ComPtr<ID3D11ShaderResourceView> MakeTextureArrayFrom(const std::vector<std::string>& filePath, bool isSrgb);
 
 	void Clear(float r, float g, float b, float a);
 	void BeginDraw();
-	void Draw(VertexBuffer& vertexBuffer, ID3D11PixelShader* pixelShader, ID3D11VertexShader* vertexShader, const std::array<ID3D11ShaderResourceView*, 3>& textures);
+
+	template<typename T>
+	void Draw(VertexBuffer& vertexBuffer, Material* material, const T& textures)
+	{
+		if (currentMaterial != material)
+		{
+			context->PSSetShader(material->pixelShader.Get(), nullptr, 0);
+			context->VSSetShader(material->vertexShader.Get(), nullptr, 0);
+			context->IASetInputLayout(material->inputLayout.Get());
+		}
+
+		context->PSSetShaderResources(0, textures.size(), textures.data());
+
+		UINT offset = 0;
+		context->IASetVertexBuffers(0, 1, vertexBuffer.buffer.GetAddressOf(), &vertexBuffer.stride, &offset);
+		context->Draw(vertexBuffer.currentVertexCount, 0);
+	}
+
 	void Present();
 
 private:
+	std::unordered_map<std::string, ComPtr<ID3D11ShaderResourceView>> textureCache;
 
 	UINT backBufferWidth{};
 	UINT backBufferHeight{};
@@ -84,16 +121,11 @@ private:
 	ComPtr<ID3D11RenderTargetView> backBuffer;
 	ComPtr<ID3D11DepthStencilView> depthTarget;
 
-	ID3D11PixelShader* currentPS{};
-	ID3D11VertexShader* currentVS{};
+	Material* currentMaterial{};
 
-	ComPtr<ID3D11PixelShader> ui_pixelShader;
-	ComPtr<ID3D11VertexShader> ui_vertexShader;
-	ComPtr<ID3D11InputLayout> ui_inputLayout;
-
-	ComPtr<ID3D11PixelShader> asteroid_pixelShader;
-	ComPtr<ID3D11VertexShader> asteroid_vertexShader;
-	ComPtr<ID3D11InputLayout> asteroid_inputLayout;
+	Material asteroidMaterial;
+	Material spriteMaterial;
+	Material UIMaterial;
 
 	ComPtr<ID3D11DepthStencilState> depthState;
 	ComPtr<ID3D11RasterizerState> rasterState;
