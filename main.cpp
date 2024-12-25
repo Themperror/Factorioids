@@ -160,14 +160,16 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 					shouldQuit = true;
 				}
 				
-				if (msg.message == WM_KEYDOWN)
+				if (msg.message == WM_KEYDOWN || msg.message == WM_SYSKEYDOWN)
 				{
 					input.SetKey(static_cast<VK_KEY>(msg.wParam), KeyState::JustDown);
 				}
-				if (msg.message == WM_KEYUP)
+				if (msg.message == WM_KEYUP || msg.message == WM_SYSKEYUP)
 				{
 					input.SetKey(static_cast<VK_KEY>(msg.wParam), KeyState::JustUp);
 				}
+				//Util::Print("0x%x 0x%x 0x%x", msg.message, msg.wParam, msg.lParam);
+
 			}
 			//////////////
 
