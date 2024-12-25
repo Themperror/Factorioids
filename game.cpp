@@ -2,6 +2,7 @@
 #include "renderer.h"
 #include "asteroid.h"
 #include "fileutils.h"
+#include "input.h"
 
 void Game::Init(Renderer& renderer)
 {
@@ -127,6 +128,22 @@ Scene::Status Game::Update(double dt, Input& input)
 	}
 
 	player.Update();
+	if (input.GetKeyState('W') == KeyState::Down)
+	{
+		player.position.y += 30.0 * dt;
+	}
+	if (input.GetKeyState('A') == KeyState::Down)
+	{
+		player.position.x -= 30.0 * dt;
+	}
+	if (input.GetKeyState('S') == KeyState::Down)
+	{
+		player.position.y -= 30.0 * dt;
+	}
+	if (input.GetKeyState('D') == KeyState::Down)
+	{
+		player.position.x += 30.0 * dt;
+	}
 
 	return Status::Running;
 }

@@ -4,7 +4,8 @@
 
 KeyState Input::GetKeyState(VK_KEY key)
 {
-	return KeyState();
+	assert(key < data.size());
+	return data[key];
 }
 
 void Input::Update()
