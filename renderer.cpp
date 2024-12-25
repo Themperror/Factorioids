@@ -8,6 +8,7 @@
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxguid.lib")
+#pragma comment(lib, "dxgi.lib")
 
 #if _DEBUG
 #pragma comment(lib, "FreeImageLibd.lib")
@@ -19,6 +20,10 @@ bool Renderer::Init(HWND& hwnd, size_t width, size_t height)
 {
 	//////////////////
 	// Device & Swapchain setup
+	IDXGIFactory* dxgiFactory;
+	CreateDXGIFactory(IID_PPV_ARGS(&dxgiFactory));
+	dxgiFactory->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER);
+
 	DXGI_SWAP_CHAIN_DESC swapDesc{};
 	swapDesc.BufferDesc.Width = static_cast<UINT>(width);
 	swapDesc.BufferDesc.Height = static_cast<UINT>(height);
@@ -203,14 +208,14 @@ bool Renderer::Init(HWND& hwnd, size_t width, size_t height)
 	dsvTexDesc.MipLevels = 1;
 	dsvTexDesc.SampleDesc.Count = 1;
 	dsvTexDesc.ArraySize = 1;
-	
-	ID3D11Texture2D* dsvTex;
-	device->CreateTexture2D(&dsvTexDesc, nullptr, &dsvTex);
+
+	ComPtr<ID3D11Texture2D> dsvTex;
+	device->CreateTexture2D(&dsvTexDesc, nullptr, dsvTex.GetAddressOf());
 
 	D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
 	dsvDesc.Format = dsvTexDesc.Format;
 	dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-	device->CreateDepthStencilView(dsvTex, &dsvDesc, depthTarget.GetAddressOf());
+	device->CreateDepthStencilView(dsvTex.Get(), &dsvDesc, depthTarget.GetAddressOf());
 
 	FreeImage_Initialise();
 
@@ -219,7 +224,25 @@ bool Renderer::Init(HWND& hwnd, size_t width, size_t height)
 
 void Renderer::Resize(size_t width, size_t height)
 {
+	swapchain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
 	
+	D3D11_TEXTURE2D_DESC dsvTexDesc{};
+	dsvTexDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	dsvTexDesc.BindFlags = D3D11_BIND_FLAG::D3D11_BIND_DEPTH_STENCIL;
+	dsvTexDesc.Height = height;
+	dsvTexDesc.Width = width;
+	dsvTexDesc.Usage = D3D11_USAGE_DEFAULT;
+	dsvTexDesc.MipLevels = 1;
+	dsvTexDesc.SampleDesc.Count = 1;
+	dsvTexDesc.ArraySize = 1;
+
+	ComPtr<ID3D11Texture2D> dsvTex;
+	device->CreateTexture2D(&dsvTexDesc, nullptr, dsvTex.GetAddressOf());
+
+	D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
+	dsvDesc.Format = dsvTexDesc.Format;
+	dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	device->CreateDepthStencilView(dsvTex.Get(), &dsvDesc, depthTarget.ReleaseAndGetAddressOf());
 }
 
 ComPtr<ID3D11Buffer> Renderer::CreateSpriteConstantBuffer(int numSpriteX, int numSpriteY)

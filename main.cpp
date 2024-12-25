@@ -65,6 +65,8 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			//Themp::System::tSys->m_SVars[std::string("WindowPosY")] = windowRect.top;
 		}
 		break;
+		case WM_DISPLAYCHANGE:
+		case WM_DEVMODECHANGE:
 		case WM_EXITSIZEMOVE:
 		{
 			if (renderer)
