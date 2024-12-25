@@ -25,7 +25,7 @@ float4 main(VS_OUT vsOut) : SV_TARGET
 		discard;
 
 	float normalStrength = 1.0;
-	float3 normal = (normalTex.Sample(samplerState, samplePos));
+	float3 normal = (normalTex.Sample(samplerState, samplePos)).xyz;
 	float2 normalxy = (normal.xy * 2.0f) - 1.0f.xx;
 	normal = float3(normalxy.x, normalxy.y, normal.z);
 	normal.z = sqrt(clamp(1.0f - dot(normal.xy, normal.xy), 0.0f, 1.0f));

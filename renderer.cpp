@@ -136,8 +136,8 @@ bool Renderer::Init(HWND& hwnd, size_t width, size_t height)
 	//////////////////
 	// Default States & Objects
 	{
-		backBufferWidth = width;
-		backBufferHeight = height;
+		backBufferWidth = static_cast<UINT>(width);
+		backBufferHeight = static_cast<UINT>(height);
 
 		D3D11_DEPTH_STENCIL_DESC depthDesc{};
 		depthDesc.DepthEnable = true;
@@ -258,7 +258,7 @@ VertexBuffer Renderer::CreateVertexBuffer(size_t vertexAmount, size_t vertexCapa
 	VertexBuffer buffer{};
 	buffer.maxVertexCount = vertexCapacity;
 	buffer.currentVertexCount = vertexAmount;
-	buffer.stride = vertexSize;
+	buffer.stride = static_cast<UINT>(vertexSize);
 	
 	D3D11_BUFFER_DESC desc{};
 	desc.ByteWidth = static_cast<UINT>(vertexSize * buffer.maxVertexCount);
@@ -283,7 +283,7 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureFrom(const std::string& fi
 	FIBITMAP* image2;
 	{
 		std::vector<uint8_t> fileData = Util::ReadFileToVector(filePath);
-		FIMEMORY* mem = FreeImage_OpenMemory(fileData.data(), fileData.size());
+		FIMEMORY* mem = FreeImage_OpenMemory(fileData.data(), static_cast<DWORD>(fileData.size()));
 		FREE_IMAGE_FORMAT format = FreeImage_GetFileTypeFromMemory(mem);
 		if (format == FREE_IMAGE_FORMAT::FIF_UNKNOWN)
 			return {};
@@ -364,7 +364,7 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureArrayFrom(const std::vecto
 		FIBITMAP* image2;
 		{
 			std::vector<uint8_t> fileData = Util::ReadFileToVector(filePath[i]);
-			FIMEMORY* mem = FreeImage_OpenMemory(fileData.data(), fileData.size());
+			FIMEMORY* mem = FreeImage_OpenMemory(fileData.data(), static_cast<DWORD>(fileData.size()));
 			FREE_IMAGE_FORMAT format = FreeImage_GetFileTypeFromMemory(mem);
 			if (format == FREE_IMAGE_FORMAT::FIF_UNKNOWN)
 				return {};
@@ -411,7 +411,7 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureArrayFrom(const std::vecto
 	D3D11_TEXTURE2D_DESC texDesc{};
 
 	texDesc.Format = isSrgb ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
-	texDesc.ArraySize = filePath.size();
+	texDesc.ArraySize = static_cast<UINT>(filePath.size());
 	texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 	texDesc.Usage = D3D11_USAGE_IMMUTABLE;
 	texDesc.Height = textureHeight;
@@ -430,7 +430,7 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureArrayFrom(const std::vecto
 	srvDesc.Format = isSrgb ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
 	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
 	srvDesc.Texture2DArray.MipLevels = 1;
-	srvDesc.Texture2DArray.ArraySize = filePath.size();
+	srvDesc.Texture2DArray.ArraySize = static_cast<UINT>(filePath.size());
 	srvDesc.Texture2DArray.FirstArraySlice = 0;
 	srvDesc.Texture2DArray.MostDetailedMip = 0;
 	ComPtr<ID3D11ShaderResourceView> newSRV;
@@ -463,8 +463,8 @@ void Renderer::BeginDraw()
 	context->PSSetSamplers(0,1,samplerState.GetAddressOf());
 
 	D3D11_VIEWPORT viewPort{};
-	viewPort.Width = backBufferWidth;
-	viewPort.Height = backBufferHeight;
+	viewPort.Width = static_cast<float>(backBufferWidth);
+	viewPort.Height = static_cast<float>(backBufferHeight);
 	viewPort.MinDepth = 0;
 	viewPort.MaxDepth = 1;
 	context->RSSetViewports(1, &viewPort);

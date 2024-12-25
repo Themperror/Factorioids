@@ -101,12 +101,12 @@ public:
 			context->IASetInputLayout(material->inputLayout.Get());
 		}
 
-		context->VSSetConstantBuffers(0,VSConstantBuffers.size(), VSConstantBuffers.data());
-		context->PSSetShaderResources(0, textures.size(), textures.data());
+		context->VSSetConstantBuffers(0, static_cast<UINT>(VSConstantBuffers.size()), VSConstantBuffers.data());
+		context->PSSetShaderResources(0, static_cast<UINT>(textures.size()), textures.data());
 
 		UINT offset = 0;
 		context->IASetVertexBuffers(0, 1, vertexBuffer.buffer.GetAddressOf(), &vertexBuffer.stride, &offset);
-		context->Draw(vertexBuffer.currentVertexCount, 0);
+		context->Draw(static_cast<UINT>(vertexBuffer.currentVertexCount), 0);
 	}
 
 	void Present();

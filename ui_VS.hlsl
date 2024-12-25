@@ -10,19 +10,19 @@ VS_OUT main(float3 pos : POS, uint vertexID : SV_VertexID)
 	vsOut.pos = float4(pos.x, pos.y, vertexID / 6, 1.0);
 	if (vertexID == 0)
 	{
-		vsOut.uv = float2(0, 0);
+		vsOut.uv.xy = float2(1, 0);
 	}
-	else if (vertexID == 1)
+	else if (vertexID == 1 || vertexID == 3)
 	{
-		vsOut.uv = float2(1, 0);
+		vsOut.uv.xy = float2(0, 0);
 	}
-	else if (vertexID == 2)
+	else if (vertexID == 2 || vertexID == 5)
 	{
-		vsOut.uv = float2(0, 1);
+		vsOut.uv.xy = float2(1, 1);
 	}
-	else if (vertexID == 3)
+	else
 	{
-		vsOut.uv = float2(1, 1);
+		vsOut.uv.xy = float2(0, 1);
 	}
 	return vsOut;
 }

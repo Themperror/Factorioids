@@ -5,23 +5,17 @@
 
 void Game::Init(Renderer& renderer)
 {
-
-
-	std::vector<std::string> diffuseNames;
-	std::vector<std::string> normalNames;
-	std::vector<std::string> roughnessNames;
-
 	std::array<const char*, AsteroidCategory::ENUM_MAX> categoryStrings = {"small", "medium", "big", "huge"};
 	std::array<const char*, AsteroidType::ENUM_MAX> typeStrings = {"carbonic", "metallic", "oxide", "promethium"};
 
 
 	const char* factorioAsteroidPath = "C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/space-age/graphics/entity/asteroid/";
 	const char* factorioAsteroidExplosionPath = "C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/space-age/graphics/entity/asteroid-explosions/";
+	const char* factorioMechPath = "C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/space-age/graphics/entity/mech-armor/mech-idle-air.png";
 
 	char buf[512];
 
 	//cache the asteroid explosion textures
-
 	sprintf_s(buf, sizeof(buf), "%s%s", factorioAsteroidExplosionPath, "asteroid-explosion-small.png");
 	asteroidExplosionsTextures[AsteroidCategory::Small] = renderer.MakeTextureFrom(buf, true);
 	asteroidExplosionConstantData[AsteroidCategory::Small] = renderer.CreateSpriteConstantBuffer(6,6);
@@ -36,6 +30,9 @@ void Game::Init(Renderer& renderer)
 	asteroidExplosionConstantData[AsteroidCategory::Huge] = asteroidExplosionConstantData[AsteroidCategory::Small];
 
 
+	std::vector<std::string> diffuseNames;
+	std::vector<std::string> normalNames;
+	std::vector<std::string> roughnessNames;
 
 	//cache all the asteroids
 	for (size_t i = 0; i < AsteroidType::ENUM_MAX; i++)
@@ -92,14 +89,14 @@ void SwapAndPop(T& container, size_t index)
 	container.pop_back();
 }
 
-Scene::Status Game::Update(double dt)
+Scene::Status Game::Update(double dt, Input& input)
 {
 	if (spawnTimer.HasFinished())
 	{
 		spawnTimer.RestartWithRemainder();
 		if (asteroids.size() > 0)
 		{
-			BreakAsteroid(rand() % asteroids.size());
+			//BreakAsteroid(rand() % asteroids.size());
 		}
 		SpawnRandomAsteroid();
 	}
@@ -107,9 +104,9 @@ Scene::Status Game::Update(double dt)
 	for (size_t i = 0; i < asteroids.size(); i++)
 	{
 		Asteroid& asteroid = asteroids[i];
-		asteroid.rot += dt * asteroid.rotSpeed;
-		asteroid.pos.x += dt * asteroid.velocity.x;
-		asteroid.pos.y += dt * asteroid.velocity.y;
+		asteroid.rot += static_cast<float>(dt * asteroid.rotSpeed);
+		asteroid.pos.x += static_cast<float>(dt * asteroid.velocity.x);
+		asteroid.pos.y += static_cast<float>(dt * asteroid.velocity.y);
 		if (asteroid.pos.x < -1000 || asteroid.pos.x > 1000 || asteroid.pos.y < -500 || asteroid.pos.y > 500)
 		{
 			EraseAsteroid(i);
@@ -130,12 +127,12 @@ Scene::Status Game::Update(double dt)
 	return Status::Running;
 }
 
-void Game::EraseAsteroid(int asteroidIndex)
+void Game::EraseAsteroid(size_t asteroidIndex)
 {
 	SwapAndPop(asteroids,asteroidIndex);
 }
 
-void Game::BreakAsteroid(int asteroidIndex)
+void Game::BreakAsteroid(size_t asteroidIndex)
 {
 	assert(asteroidIndex < asteroids.size());
 	Asteroid& asteroid = asteroids[asteroidIndex];
@@ -199,17 +196,17 @@ void Game::SpawnRandomAsteroid()
 	asteroid.category = (AsteroidCategory::Category)(rand() % AsteroidCategory::ENUM_MAX);
 	asteroid.type = (AsteroidType::Type)(rand() % AsteroidType::ENUM_MAX);
 	asteroid.health = 100.0f;
-	asteroid.rot = XMConvertToRadians(rand() % 360);
-	asteroid.rotSpeed = ((rand() % 100) - 50) * 0.005;
+	asteroid.rot = XMConvertToRadians(static_cast<float>(rand() % 360));
+	asteroid.rotSpeed = ((rand() % 100) - 50) * 0.005f;
 	asteroid.variation = rand()% 65536;
 
-	float angle = XMConvertToRadians(rand() % 360);
-	asteroid.pos.x = sin(angle) * 1000.0;
-	asteroid.pos.y = cos(angle) * 500.0;
+	float angle = XMConvertToRadians(static_cast<float>(rand() % 360));
+	asteroid.pos.x = sinf(angle) * 1000.0f;
+	asteroid.pos.y = cosf(angle) * 500.0f;
 
-	float speed = rand() % 20 + 10;
-	asteroid.velocity.x = -sin(angle) * speed * ((rand() % 50) / 50.0f);
-	asteroid.velocity.y = -cos(angle) * speed * ((rand() % 50) / 50.0f);
+	float speed = static_cast<float>(rand() % 20 + 10);
+	asteroid.velocity.x = -sinf(angle) * speed * ((rand() % 50) / 50.0f);
+	asteroid.velocity.y = -cosf(angle) * speed * ((rand() % 50) / 50.0f);
 
 	switch (asteroid.category)
 	{
@@ -233,13 +230,13 @@ void Game::SpawnAsteroid(AsteroidType::Type asteroidType, AsteroidCategory::Cate
 	asteroid.category = asteroidCategory;
 	asteroid.type = asteroidType;
 	asteroid.health = 100.0f;
-	asteroid.rot = rand() % 360;
-	asteroid.rotSpeed = ((rand() % 100) - 50) * 0.005;
+	asteroid.rot = static_cast<float>(rand() % 360);
+	asteroid.rotSpeed = ((rand() % 100) - 50) * 0.005f;
 
-	float angle = XMConvertToRadians(rand() % 360);
-	float speed = rand() % 20 + 10;
-	asteroid.velocity.x = -sin(angle) * speed * ((rand() % 50) / 50.0f);
-	asteroid.velocity.y = -cos(angle) * speed * ((rand() % 50) / 50.0f);
+	float angle = XMConvertToRadians(static_cast<float>(rand() % 360));
+	float speed = static_cast<float>(rand() % 20 + 10);
+	asteroid.velocity.x = -sinf(angle) * speed * ((rand() % 50) / 50.0f);
+	asteroid.velocity.y = -cosf(angle) * speed * ((rand() % 50) / 50.0f);
 
 	switch (asteroid.category)
 	{
@@ -259,8 +256,8 @@ void Game::SpawnAsteroid(AsteroidType::Type asteroidType, AsteroidCategory::Cate
 
 	if (position.x == 0 && position.y == 0)
 	{
-		asteroid.pos.x = sin(angle) * 1000.0;
-		asteroid.pos.y = cos(angle) * 500.0;
+		asteroid.pos.x = sinf(angle) * 1000.0f;
+		asteroid.pos.y = cosf(angle) * 500.0f;
 	}
 	else
 	{
@@ -337,7 +334,7 @@ void Game::Render(Renderer& renderer)
 		{
 			Asteroid& asteroid = asteroids[i];
 			auto& activeBuffer = asteroidBufferData[asteroid.category][asteroid.type];
-			CreateQuad(asteroid.pos, asteroid.rot, asteroid.size, asteroid.variation, ortho, activeBuffer);
+			CreateQuad(asteroid.pos, asteroid.rot, asteroid.size, static_cast<float>(asteroid.variation), ortho, activeBuffer);
 		}
 
 		for (size_t i = 0; i < asteroidVertices.size(); i++)
@@ -360,7 +357,7 @@ void Game::Render(Renderer& renderer)
 		for (size_t i = 0; i < asteroidExplosions.size(); i++)
 		{
 			auto& explode = asteroidExplosions[i];
-			CreateQuad(explode.position, explode.rotation, explode.scale, explode.GetSpriteIndex(), ortho, asteroidExplosionBufferData[explode.category]);
+			CreateQuad(explode.position, explode.rotation, explode.scale, static_cast<float>(explode.GetSpriteIndex()), ortho, asteroidExplosionBufferData[explode.category]);
 		}
 
 		for (size_t i = 0; i < asteroidExplosionVertices.size(); i++)
@@ -368,9 +365,8 @@ void Game::Render(Renderer& renderer)
 			renderer.UpdateVertexBuffer(asteroidExplosionVertices[i], asteroidExplosionBufferData[i]);
 		}
 	}
-	
-	//renderer.Clear(1,1,1,1);
-	renderer.Clear(0.025,0.025,0.025,1);
+
+	renderer.Clear(0.025f,0.025f,0.025f,1.0f);
 
 	auto asteroidMat = renderer.GetAsteroidMaterial();
 	for (size_t i = 0; i < asteroidVertices.size(); i++)
