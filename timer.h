@@ -8,33 +8,42 @@ public:
 	{
 		start = std::chrono::high_resolution_clock::now();
 		this->duration = durationSeconds;
+		remainder = 0;
 	}
 
 	bool HasFinished()
 	{
-		auto delta = std::chrono::high_resolution_clock::now() - start;
-		return (delta.count() / ToSec) > duration;
+		std::chrono::duration<double> delta = (std::chrono::high_resolution_clock::now() - start);
+		return delta.count() + remainder > duration;
 	}
 	
 	void Restart()
 	{
 		start = std::chrono::high_resolution_clock::now();
+		remainder = 0;
 	}
 	
+	void RestartWithRemainder()
+	{
+		remainder = GetTimeLeft();
+		start = std::chrono::high_resolution_clock::now();
+	}
+
 	double GetProgress()
 	{
-		auto delta = std::chrono::high_resolution_clock::now() - start;
-		return std::min((delta.count() / ToSec) / duration, 1.0);
+		std::chrono::duration<double>  delta = std::chrono::high_resolution_clock::now() - start;
+		return std::min((delta.count() ) / duration, 1.0);
 	}
 	
 	double GetTimeLeft()
 	{
-		auto delta = std::chrono::high_resolution_clock::now() - start;
-		return duration - (delta.count() / ToSec);
+		std::chrono::duration<double>  delta = std::chrono::high_resolution_clock::now() - start;
+		return duration - (delta.count());
 	}
 private:
-	constexpr static long long ToSec = 1'000'000'000;
+	constexpr static long long ToSec = 1'000'000'000'000;
 	std::chrono::high_resolution_clock::time_point start;
+	double remainder;
 	double duration;
 
 };

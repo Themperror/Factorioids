@@ -29,7 +29,7 @@ void Sprite::Update()
 			spriteIndex++;
 			didFinishAnim = true;
 		}
-		animationTimer.Restart();
+		animationTimer.RestartWithRemainder();
 	}
 }
 

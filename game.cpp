@@ -5,10 +5,7 @@
 
 void Game::Init(Renderer& renderer)
 {
-	for (size_t i = 0; i < 40; i++)
-	{
-		SpawnRandomAsteroid();
-	}
+
 
 	std::vector<std::string> diffuseNames;
 	std::vector<std::string> normalNames;
@@ -24,14 +21,21 @@ void Game::Init(Renderer& renderer)
 	char buf[512];
 
 	//cache the asteroid explosion textures
+
 	sprintf_s(buf, sizeof(buf), "%s%s", factorioAsteroidExplosionPath, "asteroid-explosion-small.png");
 	asteroidExplosionsTextures[AsteroidCategory::Small] = renderer.MakeTextureFrom(buf, true);
+	asteroidExplosionConstantData[AsteroidCategory::Small] = renderer.CreateSpriteConstantBuffer(6,6);
 	sprintf_s(buf, sizeof(buf), "%s%s", factorioAsteroidExplosionPath, "asteroid-explosion-medium.png");
 	asteroidExplosionsTextures[AsteroidCategory::Medium] = renderer.MakeTextureFrom(buf, true);
+	asteroidExplosionConstantData[AsteroidCategory::Medium] = asteroidExplosionConstantData[AsteroidCategory::Small];
 	sprintf_s(buf, sizeof(buf), "%s%s", factorioAsteroidExplosionPath, "asteroid-explosion-big.png");
 	asteroidExplosionsTextures[AsteroidCategory::Big] = renderer.MakeTextureFrom(buf, true);
+	asteroidExplosionConstantData[AsteroidCategory::Big] = asteroidExplosionConstantData[AsteroidCategory::Small];
 	sprintf_s(buf, sizeof(buf), "%s%s", factorioAsteroidExplosionPath, "asteroid-explosion-huge.png");
 	asteroidExplosionsTextures[AsteroidCategory::Huge] = renderer.MakeTextureFrom(buf, true);
+	asteroidExplosionConstantData[AsteroidCategory::Huge] = asteroidExplosionConstantData[AsteroidCategory::Small];
+
+
 
 	//cache all the asteroids
 	for (size_t i = 0; i < AsteroidType::ENUM_MAX; i++)
@@ -78,7 +82,7 @@ void Game::Init(Renderer& renderer)
 		asteroidExplosionVertices[i] = renderer.CreateVertexBuffer(0, 4096llu, sizeof(XMFLOAT4));
 	}
 
-	spawnTimer.Start(1.0);
+	spawnTimer.Start(0.3);
 }
 
 template<typename T>
@@ -92,23 +96,34 @@ Scene::Status Game::Update(double dt)
 {
 	if (spawnTimer.HasFinished())
 	{
-		spawnTimer.Restart();
-		BreakAsteroid(rand() % asteroids.size());
+		spawnTimer.RestartWithRemainder();
+		if (asteroids.size() > 0)
+		{
+			BreakAsteroid(rand() % asteroids.size());
+		}
+		SpawnRandomAsteroid();
 	}
 
 	for (size_t i = 0; i < asteroids.size(); i++)
 	{
-		asteroids[i].rot += dt * asteroids[i].rotSpeed;
-		asteroids[i].pos.x += dt * asteroids[i].velocity.x;
-		asteroids[i].pos.y += dt * asteroids[i].velocity.y;
+		Asteroid& asteroid = asteroids[i];
+		asteroid.rot += dt * asteroid.rotSpeed;
+		asteroid.pos.x += dt * asteroid.velocity.x;
+		asteroid.pos.y += dt * asteroid.velocity.y;
+		if (asteroid.pos.x < -1000 || asteroid.pos.x > 1000 || asteroid.pos.y < -500 || asteroid.pos.y > 500)
+		{
+			EraseAsteroid(i);
+			i--;
+		}
 	}
 
-	for (size_t i = asteroidExplosions.size()-1; i < asteroidExplosions.size(); i--)
+	for (size_t i = 0; i < asteroidExplosions.size(); i++)
 	{
-		asteroidExplosions[i].Update();
+		asteroidExplosions[i].Update();		
 		if (asteroidExplosions[i].HasFinishedAnimation())
 		{
 			SwapAndPop(asteroidExplosions, i);
+			i--;
 		}
 	}
 
@@ -129,7 +144,7 @@ void Game::BreakAsteroid(int asteroidIndex)
 	XMFLOAT2 position = asteroid.pos;
 
 	AsteroidExplosion& explosion = asteroidExplosions.emplace_back();
-	explosion.Init(asteroidExplosionsTextures[category], 5,5, 30.0f);
+	explosion.Init(asteroidExplosionsTextures[category], 5,5, 60.0f);
 	explosion.position = position;
 	explosion.rotation = asteroid.rot;
 	explosion.scale = asteroid.size;
@@ -150,6 +165,7 @@ void Game::BreakAsteroid(int asteroidIndex)
 			{
 				SpawnAsteroid(type, (AsteroidCategory::Category)(category - 1), position);
 			}
+			EraseAsteroid(asteroidIndex);
 		}
 		break;
 		case AsteroidCategory::Big:
@@ -160,6 +176,7 @@ void Game::BreakAsteroid(int asteroidIndex)
 			{
 				SpawnAsteroid(type, (AsteroidCategory::Category)(category - 1), position);
 			}
+			EraseAsteroid(asteroidIndex);
 		}
 		break;
 		case AsteroidCategory::Huge:
@@ -170,6 +187,7 @@ void Game::BreakAsteroid(int asteroidIndex)
 			{
 				SpawnAsteroid(type, (AsteroidCategory::Category)(category - 1), position);
 			}
+			EraseAsteroid(asteroidIndex);
 		}
 		break;
 	}
@@ -306,9 +324,9 @@ void Game::Render(Renderer& renderer)
 	
 	//Asteroids
 	{
-		for (size_t type = 0; type < AsteroidType::ENUM_MAX; type++)
+		for (size_t cat = 0; cat < AsteroidCategory::ENUM_MAX; cat++)
 		{
-			for (size_t cat = 0; cat < AsteroidCategory::ENUM_MAX; cat++)
+			for (size_t type = 0; type < AsteroidType::ENUM_MAX; type++)
 			{
 				auto& activeBuffer = asteroidBufferData[type][cat];
 				activeBuffer.clear();
@@ -318,7 +336,7 @@ void Game::Render(Renderer& renderer)
 		for (size_t i = 0; i < asteroids.size(); i++)
 		{
 			Asteroid& asteroid = asteroids[i];
-			auto& activeBuffer = asteroidBufferData[asteroid.type][asteroid.category];
+			auto& activeBuffer = asteroidBufferData[asteroid.category][asteroid.type];
 			CreateQuad(asteroid.pos, asteroid.rot, asteroid.size, asteroid.variation, ortho, activeBuffer);
 		}
 
@@ -342,7 +360,7 @@ void Game::Render(Renderer& renderer)
 		for (size_t i = 0; i < asteroidExplosions.size(); i++)
 		{
 			auto& explode = asteroidExplosions[i];
-			CreateQuad(explode.position, explode.rotation, explode.scale, 0, ortho, asteroidExplosionBufferData[explode.category]);
+			CreateQuad(explode.position, explode.rotation, explode.scale, explode.GetSpriteIndex(), ortho, asteroidExplosionBufferData[explode.category]);
 		}
 
 		for (size_t i = 0; i < asteroidExplosionVertices.size(); i++)
@@ -351,6 +369,7 @@ void Game::Render(Renderer& renderer)
 		}
 	}
 	
+	//renderer.Clear(1,1,1,1);
 	renderer.Clear(0.025,0.025,0.025,1);
 
 	auto asteroidMat = renderer.GetAsteroidMaterial();
@@ -360,11 +379,13 @@ void Game::Render(Renderer& renderer)
 		{
 			std::array<ID3D11ShaderResourceView*, 3> srvs =
 			{
-				asteroidTexturesDiffuse[i][j].Get(),
-				asteroidTexturesNormal[i][j].Get(),
-				asteroidTexturesRoughness[i][j].Get(),
+				asteroidTexturesDiffuse[j][i].Get(),
+				asteroidTexturesNormal[j][i].Get(),
+				asteroidTexturesRoughness[j][i].Get(),
 			};
-			renderer.Draw(asteroidVertices[i][j], asteroidMat, srvs);
+			std::array<ID3D11Buffer*,0> cbs;
+
+			renderer.Draw(asteroidVertices[j][i], asteroidMat, srvs, cbs);
 		}
 	}
 
@@ -375,7 +396,11 @@ void Game::Render(Renderer& renderer)
 		{
 			asteroidExplosionsTextures[i].Get(),
 		};
-		renderer.Draw(asteroidExplosionVertices[i], explosionMat, srvs);
+		std::array<ID3D11Buffer*, 1> cbs =
+		{
+			asteroidExplosionConstantData[i].Get(),
+		};
+		renderer.Draw(asteroidExplosionVertices[i], explosionMat, srvs, cbs);
 	}
 	
 }

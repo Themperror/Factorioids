@@ -9,6 +9,7 @@ public:
 	bool HasFinishedAnimation();
 	void SetSpriteRange(int start, int end);
 	void SetSpriteIndex(int index);
+	int GetSpriteIndex() { return spriteIndex; }
 	
 	XMFLOAT2 position;
 	float rotation;

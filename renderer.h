@@ -43,6 +43,8 @@ public:
 	bool Init(HWND& hwnd, size_t width, size_t height);
 	void Resize(size_t width, size_t height);
 
+	ComPtr<ID3D11Buffer> CreateSpriteConstantBuffer(int numSpriteX, int numSpriteY);
+
 	VertexBuffer CreateVertexBuffer(size_t vertexAmount, size_t vertexCapacity, size_t vertexSize);
 
 	template<typename T>
@@ -89,8 +91,8 @@ public:
 	void Clear(float r, float g, float b, float a);
 	void BeginDraw();
 
-	template<typename T>
-	void Draw(VertexBuffer& vertexBuffer, Material* material, const T& textures)
+	template<typename T, typename U>
+	void Draw(VertexBuffer& vertexBuffer, Material* material, const T& textures, const U& VSConstantBuffers)
 	{
 		if (currentMaterial != material)
 		{
@@ -99,6 +101,7 @@ public:
 			context->IASetInputLayout(material->inputLayout.Get());
 		}
 
+		context->VSSetConstantBuffers(0,VSConstantBuffers.size(), VSConstantBuffers.data());
 		context->PSSetShaderResources(0, textures.size(), textures.data());
 
 		UINT offset = 0;

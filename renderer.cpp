@@ -222,6 +222,35 @@ void Renderer::Resize(size_t width, size_t height)
 	
 }
 
+ComPtr<ID3D11Buffer> Renderer::CreateSpriteConstantBuffer(int numSpriteX, int numSpriteY)
+{
+	struct
+	{
+		int numX;
+		int numY;
+		int pad0;
+		int pad1;
+
+	} SpriteData;
+
+	SpriteData.numX = numSpriteX;
+	SpriteData.numY = numSpriteY;
+
+	D3D11_BUFFER_DESC desc{};
+	desc.ByteWidth = static_cast<UINT>(sizeof(SpriteData));
+	desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	desc.Usage = D3D11_USAGE_IMMUTABLE;
+
+	ComPtr<ID3D11Buffer> buffer;
+	D3D11_SUBRESOURCE_DATA initialData{};
+	initialData.pSysMem = &SpriteData;
+	initialData.SysMemPitch = sizeof(SpriteData);
+
+	device->CreateBuffer(&desc, &initialData, buffer.GetAddressOf());
+
+	return buffer;
+}
+
 VertexBuffer Renderer::CreateVertexBuffer(size_t vertexAmount, size_t vertexCapacity, size_t vertexSize)
 {
 	vertexCapacity = std::max(vertexAmount, vertexCapacity);
@@ -251,6 +280,7 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureFrom(const std::string& fi
 	}
 
 	FIBITMAP* image;
+	FIBITMAP* image2;
 	{
 		std::vector<uint8_t> fileData = Util::ReadFileToVector(filePath);
 		FIMEMORY* mem = FreeImage_OpenMemory(fileData.data(), fileData.size());
@@ -261,11 +291,21 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureFrom(const std::string& fi
 		image = FreeImage_LoadFromMemory(format, mem);
 		FreeImage_CloseMemory(mem);
 	}
-	//image = FreeImage_ConvertTo32Bits(image);
+	//Factorio images aren't always 32 bits, and BGR instead of RGB for some reason.. fixup here..
+	image2 = FreeImage_ConvertTo32Bits(image);
+	FreeImage_Unload(image);
 
-	BYTE* bits = FreeImage_GetBits(image);
-	uint32_t height = FreeImage_GetHeight(image);
-	uint32_t width = FreeImage_GetWidth(image);
+	FIBITMAP* rChannel = FreeImage_GetChannel(image2, FREE_IMAGE_COLOR_CHANNEL::FICC_RED);
+	FIBITMAP* bChannel = FreeImage_GetChannel(image2, FREE_IMAGE_COLOR_CHANNEL::FICC_BLUE);
+	FreeImage_SetChannel(image2, bChannel, FREE_IMAGE_COLOR_CHANNEL::FICC_RED);
+	FreeImage_SetChannel(image2, rChannel, FREE_IMAGE_COLOR_CHANNEL::FICC_BLUE);
+	FreeImage_Unload(bChannel);
+	FreeImage_Unload(rChannel);
+	FreeImage_FlipVertical(image2);
+
+	BYTE* bits = FreeImage_GetBits(image2);
+	uint32_t height = FreeImage_GetHeight(image2);
+	uint32_t width = FreeImage_GetWidth(image2);
 
 	D3D11_SUBRESOURCE_DATA initialData{};
 	initialData.pSysMem = bits;
@@ -285,7 +325,7 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureFrom(const std::string& fi
 
 	ComPtr<ID3D11Texture2D> newTexture;
 	HRESULT res = device->CreateTexture2D(&texDesc, &initialData, newTexture.GetAddressOf());
-	FreeImage_Unload(image);
+	FreeImage_Unload(image2);
 	if (res != S_OK)
 		return {};
 
