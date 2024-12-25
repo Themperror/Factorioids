@@ -4,6 +4,8 @@
 #include "fileutils.h"
 #include "input.h"
 
+XMMATRIX ortho = XMMatrixOrthographicLH(1280, 720.0f, 0.0f, 10.0f);
+
 void Game::Init(Renderer& renderer)
 {
 	std::array<const char*, AsteroidCategory::ENUM_MAX> categoryStrings = {"small", "medium", "big", "huge"};
@@ -143,6 +145,48 @@ Scene::Status Game::Update(double dt, Input& input)
 	if (input.GetKeyState('D') == KeyState::Down)
 	{
 		player.position.x += 30.0 * dt;
+	}
+	//Player rotation towards mouse
+	{
+		XMFLOAT2 mousePos = input.GetMousePos();
+		mousePos.x *= 2.0;
+		mousePos.x -= 1.0;
+		mousePos.y *= 2.0;
+		mousePos.y -= 1.0;
+		mousePos.y *= -1.0;
+		mousePos.x *= 640.0f;
+		mousePos.y *= 360.0f;
+
+		XMFLOAT2 up = XMFLOAT2(0,1);
+		XMFLOAT2 right = XMFLOAT2(1,0);
+
+		XMVECTOR mouseVec = XMLoadFloat2(&mousePos);
+		XMVECTOR upVec = XMLoadFloat2(&up);
+		XMVECTOR rightVec = XMLoadFloat2(&right);
+		XMVECTOR playerVec = XMLoadFloat2(&player.position);
+
+		//mouseVec = XMVector2Transform(mouseVec, ortho);
+		//playerVec = XMVector2Transform(playerVec, ortho);
+		//XMStoreFloat2(&mousePos, mouseVec);
+		//player.position = mousePos;
+	
+		XMVECTOR dirToCursor = XMVectorSubtract(mouseVec, playerVec);
+		dirToCursor = XMVector2Normalize(dirToCursor);
+
+		XMVECTOR dotVec = XMVector2Dot(dirToCursor, rightVec);
+		float dot;
+		XMStoreFloat(&dot, dotVec);
+		int direction = dot < 0.0f ? -1 : 1;
+
+		dotVec = XMVector2Dot(dirToCursor, upVec);
+		XMStoreFloat(&dot, dotVec);
+		float angle = acos(std::min(std::max(dot, -1.0f), 1.0f)) + XM_PI / 8.0f;
+		int sector = (int)std::min(std::max(4.0f * angle / XM_PI, 0.0f), 4.0f);
+		if (direction < 0 && sector > 0 && sector < 4)
+		{
+			sector = 8-sector;
+		}
+		player.SetSpriteRange(sector * 5, (sector * 5)+5);
 	}
 
 	return Status::Running;
@@ -338,7 +382,6 @@ void CreateQuad(XMFLOAT2 position, float rotation, float size, float customData,
 
 void Game::Render(Renderer& renderer)
 {
-	XMMATRIX ortho = XMMatrixOrthographicLH(1280,720.0f,0.0f,10.0f);
 	
 	//Asteroids
 	{

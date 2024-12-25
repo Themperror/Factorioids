@@ -23,6 +23,17 @@ void Input::Update()
 	}
 }
 
+void Input::SetMousePos(float x, float y)
+{
+	mouseX = x;
+	mouseY = y;
+}
+
+XMFLOAT2 Input::GetMousePos()
+{
+	return XMFLOAT2(mouseX, mouseY);
+}
+
 void Input::SetKey(VK_KEY key, KeyState state)
 {
 	assert(key < data.size());

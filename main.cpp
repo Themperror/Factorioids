@@ -173,6 +173,18 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 				//Util::Print("0x%x 0x%x 0x%x", msg.message, msg.wParam, msg.lParam);
 
 			}
+
+			RECT windowRect;
+			GetWindowRect(window, &windowRect);
+			POINT mousePos;
+			GetCursorPos(&mousePos);
+			mousePos.x -= windowRect.left;
+			mousePos.y -= windowRect.top;
+			LONG width  = windowRect.right - windowRect.left;
+			LONG height = windowRect.bottom - windowRect.top;
+			mousePos.x = std::min(std::max(mousePos.x, 0l), width);
+			mousePos.y = std::min(std::max(mousePos.y, 0l), height);
+			input.SetMousePos((float)mousePos.x / (float)width, (float)mousePos.y / (float)height);
 			//////////////
 
 
