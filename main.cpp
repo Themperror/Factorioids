@@ -90,6 +90,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 	FILE* conout = nullptr;
 	freopen_s(&conout, "CONOUT$", "w", stdout);
 #endif
+	Util::SetLogFile("log.txt");
 
 	//Set up Win32 window
 	{

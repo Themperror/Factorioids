@@ -11,7 +11,10 @@ struct Asteroid;
 
 struct Player : Sprite
 {
-	
+	std::vector<XMFLOAT4> vertices;
+	VertexBuffer vertexBuffer;
+	ComPtr<ID3D11Buffer> constantBuffer;
+
 };
 
 class Game : Scene

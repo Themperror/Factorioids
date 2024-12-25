@@ -10,6 +10,7 @@ public:
 	void SetSpriteRange(int start, int end);
 	void SetSpriteIndex(int index);
 	int GetSpriteIndex() { return spriteIndex; }
+	ID3D11ShaderResourceView* GetTexture() { return texture.Get(); }
 	
 	XMFLOAT2 position;
 	float rotation;

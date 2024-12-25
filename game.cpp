@@ -13,6 +13,12 @@ void Game::Init(Renderer& renderer)
 	const char* factorioAsteroidExplosionPath = "C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/space-age/graphics/entity/asteroid-explosions/";
 	const char* factorioMechPath = "C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/space-age/graphics/entity/mech-armor/mech-idle-air.png";
 
+	player.Init(renderer.MakeTextureFrom(factorioMechPath, true),5,8,60.0f);
+	player.SetSpriteRange(0,5);
+	player.scale = 20;
+	player.vertexBuffer = renderer.CreateVertexBuffer(6,6,sizeof(XMFLOAT4));
+	player.constantBuffer = renderer.CreateSpriteConstantBuffer(5, 8);
+
 	char buf[512];
 
 	//cache the asteroid explosion textures
@@ -94,10 +100,6 @@ Scene::Status Game::Update(double dt, Input& input)
 	if (spawnTimer.HasFinished())
 	{
 		spawnTimer.RestartWithRemainder();
-		if (asteroids.size() > 0)
-		{
-			//BreakAsteroid(rand() % asteroids.size());
-		}
 		SpawnRandomAsteroid();
 	}
 
@@ -123,6 +125,8 @@ Scene::Status Game::Update(double dt, Input& input)
 			i--;
 		}
 	}
+
+	player.Update();
 
 	return Status::Running;
 }
@@ -366,6 +370,13 @@ void Game::Render(Renderer& renderer)
 		}
 	}
 
+	//Player
+	{
+		player.vertices.clear();
+		CreateQuad(player.position, 0, player.scale, static_cast<float>(player.GetSpriteIndex()), ortho, player.vertices);
+		renderer.UpdateVertexBuffer(player.vertexBuffer, player.vertices);
+	}
+
 	renderer.Clear(0.025f,0.025f,0.025f,1.0f);
 
 	auto asteroidMat = renderer.GetAsteroidMaterial();
@@ -385,7 +396,7 @@ void Game::Render(Renderer& renderer)
 		}
 	}
 
-	auto explosionMat = renderer.GetSpriteMaterial();
+	auto spriteMaterial = renderer.GetSpriteMaterial();
 	for (size_t i = 0; i < asteroidExplosionVertices.size(); i++)
 	{
 		std::array<ID3D11ShaderResourceView*, 1> srvs =
@@ -396,7 +407,19 @@ void Game::Render(Renderer& renderer)
 		{
 			asteroidExplosionConstantData[i].Get(),
 		};
-		renderer.Draw(asteroidExplosionVertices[i], explosionMat, srvs, cbs);
+		renderer.Draw(asteroidExplosionVertices[i], spriteMaterial, srvs, cbs);
+	}
+	
+	{
+		std::array<ID3D11ShaderResourceView*, 1> srvs =
+		{
+			player.GetTexture(),
+		};
+		std::array<ID3D11Buffer*, 1> cbs =
+		{
+			player.constantBuffer.Get(),
+		};
+		renderer.Draw(player.vertexBuffer, spriteMaterial, srvs, cbs);
 	}
 	
 }
