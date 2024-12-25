@@ -56,6 +56,7 @@ public:
 			Util::Print("Failed to map vertex buffer! Count: %llu, Size: %llu", vertices.size(), vertices.size() * sizeof(T));
 			Util::Break();
 		}
+		buffer.currentVertexCount = vertices.size();
 	}
 
 	ID3D11PixelShader* GetAsteroidPixelShader();
@@ -68,7 +69,7 @@ public:
 
 	void Clear(float r, float g, float b, float a);
 	void BeginDraw();
-	void Draw(VertexBuffer& vertexBuffer, ID3D11PixelShader* pixelShader, ID3D11VertexShader* vertexShader, const std::vector<ID3D11ShaderResourceView*>& textures);
+	void Draw(VertexBuffer& vertexBuffer, ID3D11PixelShader* pixelShader, ID3D11VertexShader* vertexShader, const std::array<ID3D11ShaderResourceView*, 3>& textures);
 	void Present();
 
 private:

@@ -2,6 +2,8 @@
 #include "fileutils.h"
 
 #define FREEIMAGE_LIB
+//RGB colororder for FreeImage
+#define FREEIMAGE_COLORORDER 1
 #include "FreeImage.h"
 
 #pragma comment(lib, "d3d11.lib")
@@ -52,7 +54,7 @@ bool Renderer::Init(HWND& hwnd, size_t width, size_t height)
 		//UINT AlignedByteOffset;
 		//D3D11_INPUT_CLASSIFICATION InputSlotClass;
 		//UINT InstanceDataStepRate;
-		D3D11_INPUT_ELEMENT_DESC{"POS", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_CLASSIFICATION::D3D11_INPUT_PER_VERTEX_DATA, 0},
+		D3D11_INPUT_ELEMENT_DESC{"POS", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D11_INPUT_CLASSIFICATION::D3D11_INPUT_PER_VERTEX_DATA, 0},
 	};
 
 	{
@@ -243,7 +245,7 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureFrom(const std::string& fi
 		image = FreeImage_LoadFromMemory(format, mem);
 		FreeImage_CloseMemory(mem);
 	}
-	image = FreeImage_ConvertTo32Bits(image);
+	//image = FreeImage_ConvertTo32Bits(image);
 
 	BYTE* bits = FreeImage_GetBits(image);
 	uint32_t height = FreeImage_GetHeight(image);
@@ -293,6 +295,7 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureArrayFrom(const std::vecto
 	for (size_t i = 0; i < filePath.size(); i++)
 	{
 		FIBITMAP* image;
+		FIBITMAP* image2;
 		{
 			std::vector<uint8_t> fileData = Util::ReadFileToVector(filePath[i]);
 			FIMEMORY* mem = FreeImage_OpenMemory(fileData.data(), fileData.size());
@@ -303,11 +306,22 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureArrayFrom(const std::vecto
 			image = FreeImage_LoadFromMemory(format, mem);
 			FreeImage_CloseMemory(mem);
 		}
-		image = FreeImage_ConvertTo32Bits(image);
 
-		BYTE* bits = FreeImage_GetBits(image);
-		textureHeight = FreeImage_GetHeight(image);
-		textureWidth = FreeImage_GetWidth(image);
+		//Factorio images aren't always 32 bits, and BGR instead of RGB for some reason.. fixup here..
+		image2 = FreeImage_ConvertTo32Bits(image);
+		FreeImage_Unload(image);
+
+		FIBITMAP* rChannel = FreeImage_GetChannel(image2, FREE_IMAGE_COLOR_CHANNEL::FICC_RED);
+		FIBITMAP* bChannel = FreeImage_GetChannel(image2, FREE_IMAGE_COLOR_CHANNEL::FICC_BLUE);
+		FreeImage_SetChannel(image2,bChannel, FREE_IMAGE_COLOR_CHANNEL::FICC_RED);
+		FreeImage_SetChannel(image2,rChannel, FREE_IMAGE_COLOR_CHANNEL::FICC_BLUE);
+		FreeImage_Unload(bChannel);
+		FreeImage_Unload(rChannel);
+		FreeImage_FlipVertical(image2);
+		
+		BYTE* bits = FreeImage_GetBits(image2);
+		textureHeight = FreeImage_GetHeight(image2);
+		textureWidth = FreeImage_GetWidth(image2);
 
 		imageSize = textureHeight * textureWidth * 4;
 		if (data.size() == 0)
@@ -315,7 +329,7 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureArrayFrom(const std::vecto
 			data.resize(imageSize * filePath.size());
 		}
 		memcpy(data.data() + (imageSize * i), bits, imageSize );
-		FreeImage_Unload(image);
+		FreeImage_Unload(image2);
 	}
 
 
@@ -386,7 +400,7 @@ void Renderer::BeginDraw()
 	context->RSSetViewports(1, &viewPort);
 }
 
-void Renderer::Draw(VertexBuffer& vertexBuffer, ID3D11PixelShader* pixelShader, ID3D11VertexShader* vertexShader, const std::vector<ID3D11ShaderResourceView*>& textures)
+void Renderer::Draw(VertexBuffer& vertexBuffer, ID3D11PixelShader* pixelShader, ID3D11VertexShader* vertexShader, const std::array<ID3D11ShaderResourceView*,3>& textures)
 {
 	if (currentPS != pixelShader)
 	{

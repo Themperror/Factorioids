@@ -1,13 +1,13 @@
 struct VS_OUT
 {
 	float4 pos : SV_Position;
-	float3 uv : UV0;
+	float4 uv : UV0;
 };
 
-VS_OUT main( float3 pos : POS , uint vertexID : SV_VertexID)
+VS_OUT main( float4 pos : POS , uint vertexID : SV_VertexID)
 {
 	VS_OUT vsOut;
-	vsOut.pos = float4(pos.x, pos.y, ((vertexID + 6) / 6) * 0.0001, 1.0);
+	vsOut.pos = float4(pos.x, pos.y, pos.z * 0.0001, 1.0);
 	vertexID = vertexID % 6;
 	if (vertexID == 0)
 	{
@@ -27,5 +27,7 @@ VS_OUT main( float3 pos : POS , uint vertexID : SV_VertexID)
 	}
 	//rotation value
 	vsOut.uv.z = pos.z;
+	//variation
+	vsOut.uv.w = pos.w;
 	return vsOut;	
 }
