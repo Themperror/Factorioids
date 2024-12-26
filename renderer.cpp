@@ -1,5 +1,6 @@
 #include "renderer.h"
 #include "fileutils.h"
+#include <functional>
 
 #define FREEIMAGE_LIB
 //RGB colororder for FreeImage
@@ -15,6 +16,7 @@
 #else
 #pragma comment(lib, "FreeImageLib.lib")
 #endif
+
 
 bool Renderer::Init(HWND& hwnd, size_t width, size_t height)
 {
@@ -219,8 +221,62 @@ bool Renderer::Init(HWND& hwnd, size_t width, size_t height)
 
 	FreeImage_Initialise();
 
+	
+	texturesToLoad.reserve(256);
+	int numThreads = std::max(std::thread::hardware_concurrency()-2, 4u);
+	for (int i = 0; i < numThreads; i++)
+	{
+		loadingThreads.emplace_back(std::bind(&Renderer::LoadingThread, this));
+	}
+
 	return res == S_OK;
 }
+
+
+Renderer::~Renderer()
+{
+	FlushLoading();
+
+	shuttingDown = true;
+	for (size_t i = 0; i < loadingThreads.size(); i++)
+	{
+		loadingThreads[i].join();
+	}
+}
+
+void Renderer::LoadingThread()
+{
+	while (!shuttingDown)
+	{
+		loadLock.lock();
+		if (texturesToLoad.size() == 0)
+		{
+			loadLock.unlock();
+			using namespace std::chrono_literals;
+			std::this_thread::sleep_for(50ms);
+			continue;
+		}
+
+		//explicitly copy
+		auto load = texturesToLoad[texturesToLoad.size()-1];
+		texturesToLoad.pop_back();
+		loadLock.unlock();
+
+		ComPtr<ID3D11ShaderResourceView> srv;
+		if (load.path.size() == 1)
+		{
+			srv = MakeTextureFrom_internal(load.path[0], load.srgb);
+		}
+		else
+		{
+			srv = MakeTextureArrayFrom_internal(load.path, load.srgb);
+		}
+		textureLock.lock();
+		textures[load.texHandle] = srv;
+		textureLock.unlock();
+	}
+}
+
 
 void Renderer::Resize(size_t width, size_t height)
 {
@@ -294,14 +350,38 @@ VertexBuffer Renderer::CreateVertexBuffer(size_t vertexAmount, size_t vertexCapa
 	return buffer;
 }
 
-ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureFrom(const std::string& filePath, bool isSrgb)
+int Renderer::MakeTextureFrom(const std::string& filePath, bool isSrgb)
 {
-	const auto& it = textureCache.find(filePath);
-	if (it != textureCache.end())
-	{
-		return it->second;
-	}
+	textures.emplace_back();
+	int handle = textures.size() - 1;
 
+	loadLock.lock();
+	auto& tex = texturesToLoad.emplace_back();
+	loadLock.unlock();
+
+	tex.path.push_back(filePath);
+	tex.srgb = isSrgb;
+	tex.texHandle = handle;
+	return handle;
+}
+
+int Renderer::MakeTextureArrayFrom(const std::vector<std::string>& filePath, bool isSrgb)
+{
+	textures.emplace_back();
+	int handle = textures.size() - 1;
+
+	loadLock.lock();
+	auto& tex = texturesToLoad.emplace_back();
+	loadLock.unlock();
+
+	tex.path = filePath;
+	tex.srgb = isSrgb;
+	tex.texHandle = handle;
+	return handle;
+}
+
+ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureFrom_internal(const std::string& filePath, bool isSrgb)
+{
 	FIBITMAP* image;
 	FIBITMAP* image2;
 	{
@@ -309,7 +389,10 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureFrom(const std::string& fi
 		FIMEMORY* mem = FreeImage_OpenMemory(fileData.data(), static_cast<DWORD>(fileData.size()));
 		FREE_IMAGE_FORMAT format = FreeImage_GetFileTypeFromMemory(mem);
 		if (format == FREE_IMAGE_FORMAT::FIF_UNKNOWN)
+		{
+			Util::Print("Failed to load texture (Unknown format): %s", filePath.c_str());
 			return {};
+		}
 
 		image = FreeImage_LoadFromMemory(format, mem);
 		FreeImage_CloseMemory(mem);
@@ -350,7 +433,10 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureFrom(const std::string& fi
 	HRESULT res = device->CreateTexture2D(&texDesc, &initialData, newTexture.GetAddressOf());
 	FreeImage_Unload(image2);
 	if (res != S_OK)
+	{
+		Util::Print("Failed to load texture (Unable to create Tex2D): %s", filePath.c_str());
 		return {};
+	}
 
 	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc{};
 	srvDesc.Format = isSrgb ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -360,23 +446,16 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureFrom(const std::string& fi
 	res = device->CreateShaderResourceView(newTexture.Get(), &srvDesc, newSRV.GetAddressOf());
 
 	if (res != S_OK)
+	{
+		Util::Print("Failed to load texture (Unable to create SRV): %s", filePath.c_str());
 		return {};
+	}
 
-	textureCache.emplace(filePath, newSRV);
 	return newSRV;
 }
 
-ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureArrayFrom(const std::vector<std::string>& filePath, bool isSrgb)
+ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureArrayFrom_internal(const std::vector<std::string>& filePath, bool isSrgb)
 {
-	for (size_t i = 0; i < filePath.size(); i++)
-	{
-		const auto& it = textureCache.find(filePath[i]);
-		if (it != textureCache.end())
-		{
-			return it->second;
-		}
-	}
-
 	UINT textureWidth{}, textureHeight{};
 	uint32_t imageSize{};
 	std::vector<uint8_t> data;
@@ -390,7 +469,10 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureArrayFrom(const std::vecto
 			FIMEMORY* mem = FreeImage_OpenMemory(fileData.data(), static_cast<DWORD>(fileData.size()));
 			FREE_IMAGE_FORMAT format = FreeImage_GetFileTypeFromMemory(mem);
 			if (format == FREE_IMAGE_FORMAT::FIF_UNKNOWN)
+			{
+				Util::Print("Failed to load texture (Unknown format): %s", filePath[i].c_str());
 				return {};
+			}
 
 			image = FreeImage_LoadFromMemory(format, mem);
 			FreeImage_CloseMemory(mem);
@@ -447,7 +529,10 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureArrayFrom(const std::vecto
 	ComPtr<ID3D11Texture2D> newTexture;
 	HRESULT res = device->CreateTexture2D(&texDesc, initialData.data(), newTexture.GetAddressOf());
 	if (res != S_OK)
+	{
+		Util::Print("Failed to load texture array (Unable to create Tex2D): (starting from %s)", filePath[0].c_str());
 		return {};
+	}
 
 	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc{};
 	srvDesc.Format = isSrgb ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -460,12 +545,11 @@ ComPtr<ID3D11ShaderResourceView> Renderer::MakeTextureArrayFrom(const std::vecto
 	res = device->CreateShaderResourceView(newTexture.Get(), &srvDesc, newSRV.GetAddressOf());
 
 	if (res != S_OK)
-		return {};
-
-	for (size_t i = 0; i < filePath.size(); i++)
 	{
-		textureCache.emplace(filePath[i], newSRV);
+		Util::Print("Failed to load texture array (Unable to create SRV): (starting from: %s)", filePath[0].c_str());
+		return {};
 	}
+
 	return newSRV;
 }
 
@@ -491,6 +575,30 @@ void Renderer::BeginDraw()
 	viewPort.MinDepth = 0;
 	viewPort.MaxDepth = 1;
 	context->RSSetViewports(1, &viewPort);
+}
+
+void Renderer::FlushLoading()
+{
+	using namespace std::chrono_literals;
+	while (texturesToLoad.size())
+	{
+		std::this_thread::sleep_for(16ms);
+	}
+
+	//threads may have consumed the last jobs from textureToLoad, but could still be working on it
+	//final check to see if all textures are assigned (and thus loaded)..
+	retry:
+	textureLock.lock();
+	for (size_t i = 0; i < textures.size(); i++)
+	{
+		if (textures[i].Get() == nullptr)
+		{
+			textureLock.unlock();
+			std::this_thread::sleep_for(33ms);
+			goto retry;
+		}
+	}
+	textureLock.unlock();
 }
 
 void Renderer::Present()

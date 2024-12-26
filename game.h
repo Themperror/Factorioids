@@ -41,8 +41,8 @@ private:
 	std::array<std::array<ComPtr<ID3D11ShaderResourceView>, AsteroidType::ENUM_MAX>,AsteroidCategory::ENUM_MAX> asteroidTexturesNormal;
 	std::array<std::array<ComPtr<ID3D11ShaderResourceView>, AsteroidType::ENUM_MAX>,AsteroidCategory::ENUM_MAX> asteroidTexturesRoughness;
 
-	std::array<ComPtr<ID3D11Buffer>, AsteroidCategory::ENUM_MAX> asteroidExplosionConstantData;
 	std::array<ComPtr<ID3D11ShaderResourceView>, AsteroidCategory::ENUM_MAX> asteroidExplosionsTextures;
+	std::array<ComPtr<ID3D11Buffer>, AsteroidCategory::ENUM_MAX> asteroidExplosionConstantData;
 	ComPtr<ID3D11ShaderResourceView> mechArmorTexture;
 
 	std::array<VertexBuffer, AsteroidCategory::ENUM_MAX> asteroidExplosionVertices;

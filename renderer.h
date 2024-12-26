@@ -14,6 +14,9 @@
 #include "print.h"
 #include "break.h"
 
+#include <thread>
+#include <mutex>
+
 using namespace DirectX;
 
 #define FWD_DECL_HANDLE(name) struct name##__; typedef struct name##__ *name
@@ -21,6 +24,18 @@ FWD_DECL_HANDLE(HWND);
 
 template<class T>
 using ComPtr = Microsoft::WRL::ComPtr<T>;
+
+template<typename T>
+void SwapAndPop(T& container, size_t index)
+{
+	if(container.size() == 1)
+	{
+		container.pop_back();
+		return;
+	}
+	std::swap(container[index], container.back());
+	container.pop_back();
+}
 
 struct VertexBuffer
 {
@@ -40,6 +55,7 @@ struct Material
 class Renderer
 {
 public:
+	~Renderer();
 	bool Init(HWND& hwnd, size_t width, size_t height);
 	void Resize(size_t width, size_t height);
 
@@ -85,9 +101,9 @@ public:
 	}
 
 
-	ComPtr<ID3D11ShaderResourceView> MakeTextureFrom(const std::string& filePath, bool isSrgb);
-	ComPtr<ID3D11ShaderResourceView> MakeTextureArrayFrom(const std::vector<std::string>& filePath, bool isSrgb);
-
+	int MakeTextureFrom(const std::string& filePath, bool isSrgb);
+	int MakeTextureArrayFrom(const std::vector<std::string>& filePath, bool isSrgb);
+	ID3D11ShaderResourceView* GetTexture(int handle) { return textures[handle].Get();};
 	void Clear(float r, float g, float b, float a);
 	void BeginDraw();
 
@@ -109,10 +125,25 @@ public:
 		context->Draw(static_cast<UINT>(vertexBuffer.currentVertexCount), 0);
 	}
 
+	void FlushLoading();
 	void Present();
-
 private:
-	std::unordered_map<std::string, ComPtr<ID3D11ShaderResourceView>> textureCache;
+	struct TextureLoad
+	{
+		std::vector<std::string> path;
+		int texHandle;
+		bool srgb;
+	};
+	std::mutex textureLock;
+	std::mutex loadLock;
+	std::vector<TextureLoad> texturesToLoad;
+	void LoadingThread();
+	ComPtr<ID3D11ShaderResourceView> MakeTextureFrom_internal(const std::string& filePath, bool isSrgb);
+	ComPtr<ID3D11ShaderResourceView> MakeTextureArrayFrom_internal(const std::vector<std::string>& filePath, bool isSrgb);
+
+	std::atomic_bool shuttingDown = false;
+
+	std::vector<ComPtr<ID3D11ShaderResourceView>> textures;
 
 	UINT backBufferWidth{};
 	UINT backBufferHeight{};
@@ -129,6 +160,8 @@ private:
 	Material asteroidMaterial;
 	Material spriteMaterial;
 	Material UIMaterial;
+
+	std::vector<std::thread> loadingThreads;
 
 	ComPtr<ID3D11DepthStencilState> depthState;
 	ComPtr<ID3D11RasterizerState> rasterState;

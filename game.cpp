@@ -16,26 +16,26 @@ void Game::Init(Renderer& renderer)
 	const char* factorioAsteroidExplosionPath = "C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/space-age/graphics/entity/asteroid-explosions/";
 	const char* factorioMechPath = "C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/space-age/graphics/entity/mech-armor/mech-idle-air.png";
 
-	player.Init(renderer.MakeTextureFrom(factorioMechPath, true),5,8,60.0f);
-	player.SetSpriteRange(0,5);
-	player.scale = 20;
-	player.vertexBuffer = renderer.CreateVertexBuffer(6,6,sizeof(XMFLOAT4));
-	player.constantBuffer = renderer.CreateSpriteConstantBuffer(5, 8);
+	int playerTextureHandle= renderer.MakeTextureFrom(factorioMechPath, true);
+	std::array<std::array<int, AsteroidType::ENUM_MAX>, AsteroidCategory::ENUM_MAX> asteroidTexturesDiffuseHandles;
+	std::array<std::array<int, AsteroidType::ENUM_MAX>, AsteroidCategory::ENUM_MAX> asteroidTexturesNormalHandles;
+	std::array<std::array<int, AsteroidType::ENUM_MAX>, AsteroidCategory::ENUM_MAX> asteroidTexturesRoughnessHandles;
+	std::array<int, AsteroidCategory::ENUM_MAX> asteroidExplosionsTextureHandles;
 
 	char buf[512];
 
 	//cache the asteroid explosion textures
 	sprintf_s(buf, sizeof(buf), "%s%s", factorioAsteroidExplosionPath, "asteroid-explosion-small.png");
-	asteroidExplosionsTextures[AsteroidCategory::Small] = renderer.MakeTextureFrom(buf, true);
+	asteroidExplosionsTextureHandles[AsteroidCategory::Small] = renderer.MakeTextureFrom(buf, true);
 	asteroidExplosionConstantData[AsteroidCategory::Small] = renderer.CreateSpriteConstantBuffer(6,6);
 	sprintf_s(buf, sizeof(buf), "%s%s", factorioAsteroidExplosionPath, "asteroid-explosion-medium.png");
-	asteroidExplosionsTextures[AsteroidCategory::Medium] = renderer.MakeTextureFrom(buf, true);
+	asteroidExplosionsTextureHandles[AsteroidCategory::Medium] = renderer.MakeTextureFrom(buf, true);
 	asteroidExplosionConstantData[AsteroidCategory::Medium] = asteroidExplosionConstantData[AsteroidCategory::Small];
 	sprintf_s(buf, sizeof(buf), "%s%s", factorioAsteroidExplosionPath, "asteroid-explosion-big.png");
-	asteroidExplosionsTextures[AsteroidCategory::Big] = renderer.MakeTextureFrom(buf, true);
+	asteroidExplosionsTextureHandles[AsteroidCategory::Big] = renderer.MakeTextureFrom(buf, true);
 	asteroidExplosionConstantData[AsteroidCategory::Big] = asteroidExplosionConstantData[AsteroidCategory::Small];
 	sprintf_s(buf, sizeof(buf), "%s%s", factorioAsteroidExplosionPath, "asteroid-explosion-huge.png");
-	asteroidExplosionsTextures[AsteroidCategory::Huge] = renderer.MakeTextureFrom(buf, true);
+	asteroidExplosionsTextureHandles[AsteroidCategory::Huge] = renderer.MakeTextureFrom(buf, true);
 	asteroidExplosionConstantData[AsteroidCategory::Huge] = asteroidExplosionConstantData[AsteroidCategory::Small];
 
 
@@ -61,16 +61,15 @@ void Game::Init(Renderer& renderer)
 				roughnessNames.push_back(buf);
 			}
 
-			asteroidTexturesDiffuse[j][i] = renderer.MakeTextureArrayFrom(diffuseNames, true);
-			asteroidTexturesNormal[j][i] = renderer.MakeTextureArrayFrom(normalNames, false);
-			asteroidTexturesRoughness[j][i] = renderer.MakeTextureArrayFrom(roughnessNames, false);
+			asteroidTexturesDiffuseHandles[j][i] = renderer.MakeTextureArrayFrom(diffuseNames, true);
+			asteroidTexturesNormalHandles[j][i] = renderer.MakeTextureArrayFrom(normalNames, false);
+			asteroidTexturesRoughnessHandles[j][i] = renderer.MakeTextureArrayFrom(roughnessNames, false);
 
 			diffuseNames.clear();
 			normalNames.clear();
 			roughnessNames.clear();
 		}
 	}
-
 
 	for (size_t i = 0; i < asteroidVertices.size(); i++)
 	{
@@ -88,15 +87,29 @@ void Game::Init(Renderer& renderer)
 		asteroidExplosionVertices[i] = renderer.CreateVertexBuffer(0, 4096llu, sizeof(XMFLOAT4));
 	}
 
+	player.vertexBuffer = renderer.CreateVertexBuffer(6, 6, sizeof(XMFLOAT4));
+	player.constantBuffer = renderer.CreateSpriteConstantBuffer(5, 8);
+
+	renderer.FlushLoading();
+
+	for (size_t i = 0; i < AsteroidType::ENUM_MAX; i++)
+	{
+		for (size_t j = 0; j < AsteroidCategory::ENUM_MAX; j++)
+		{
+			asteroidTexturesDiffuse[j][i] = renderer.GetTexture(asteroidTexturesDiffuseHandles[j][i]);
+			asteroidTexturesNormal[j][i] = renderer.GetTexture(asteroidTexturesNormalHandles[j][i]);
+			asteroidTexturesRoughness[j][i] = renderer.GetTexture(asteroidTexturesRoughnessHandles[j][i]);
+		}
+	}
+
+	player.Init(renderer.GetTexture(playerTextureHandle), 5, 8, 60.0f);
+	player.SetSpriteRange(0, 5);
+	player.scale = 20;
+
+
 	spawnTimer.Start(0.3);
 }
 
-template<typename T>
-void SwapAndPop(T& container, size_t index)
-{
-	std::swap(container[index], container.back());
-	container.pop_back();
-}
 
 Scene::Status Game::Update(double dt, Input& input)
 {
