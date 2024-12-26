@@ -16,6 +16,8 @@ void Sprite::Init(ComPtr<ID3D11ShaderResourceView> spriteSheet, int spriteNumX, 
 	spriteNumH = spriteNumY;
 	spriteIndex = 0;
 	didFinishAnim = false;
+	spriteRangeStart = 0;
+	spriteRangeEnd = spriteNumW * spriteNumH;
 	animationTimer.Start(1.0f / fps);
 }
 
@@ -40,6 +42,9 @@ bool Sprite::HasFinishedAnimation()
 
 void Sprite::SetSpriteRange(int start, int end)
 {
+	if(spriteRangeStart == start && spriteRangeEnd == end)
+		return;
+
 	spriteIndex = start;
 	spriteRangeStart = start;
 	spriteRangeEnd = end;

@@ -28,12 +28,7 @@ using ComPtr = Microsoft::WRL::ComPtr<T>;
 template<typename T>
 void SwapAndPop(T& container, size_t index)
 {
-	if(container.size() == 1)
-	{
-		container.pop_back();
-		return;
-	}
-	std::swap(container[index], container.back());
+	std::swap(container[index], (*(container.begin() + container.size()-1)));
 	container.pop_back();
 }
 
