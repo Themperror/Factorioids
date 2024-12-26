@@ -32,6 +32,8 @@ private:
 	Player player;
 	std::vector<Asteroid> asteroids;
 	std::vector<AsteroidExplosion> asteroidExplosions;
+
+	std::array<std::array<std::vector<int>, 36>, 64> asteroidGrid;
 	
 
 	std::array<std::array<std::vector<XMFLOAT4>, AsteroidType::ENUM_MAX>, AsteroidCategory::ENUM_MAX> asteroidBufferData;

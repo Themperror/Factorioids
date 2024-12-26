@@ -4,6 +4,8 @@
 #include "fileutils.h"
 #include "input.h"
 
+#include <algorithm>
+
 XMMATRIX ortho = XMMatrixOrthographicLH(1280, 720.0f, 0.0f, 10.0f);
 
 void Game::Init(Renderer& renderer)
@@ -17,6 +19,7 @@ void Game::Init(Renderer& renderer)
 	const char* factorioMechPath = "C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/space-age/graphics/entity/mech-armor/mech-idle-air.png";
 
 	int playerTextureHandle= renderer.MakeTextureFrom(factorioMechPath, true);
+
 	std::array<std::array<int, AsteroidType::ENUM_MAX>, AsteroidCategory::ENUM_MAX> asteroidTexturesDiffuseHandles;
 	std::array<std::array<int, AsteroidType::ENUM_MAX>, AsteroidCategory::ENUM_MAX> asteroidTexturesNormalHandles;
 	std::array<std::array<int, AsteroidType::ENUM_MAX>, AsteroidCategory::ENUM_MAX> asteroidTexturesRoughnessHandles;
@@ -101,18 +104,39 @@ void Game::Init(Renderer& renderer)
 			asteroidTexturesRoughness[j][i] = renderer.GetTexture(asteroidTexturesRoughnessHandles[j][i]);
 		}
 	}
+	for (size_t i = 0; i < asteroidExplosionsTextures.size(); i++)
+	{
+		asteroidExplosionsTextures[i] = renderer.GetTexture(asteroidExplosionsTextureHandles[i]);
+	}
 
 	player.Init(renderer.GetTexture(playerTextureHandle), 5, 8, 60.0f);
 	player.SetSpriteRange(0, 5);
 	player.scale = 20;
 
-
 	spawnTimer.Start(0.3);
 }
 
 
+XMFLOAT2 ToUnifiedSpace(float posX, float posY)
+{
+	return XMFLOAT2((posX + 640.0f) / 1280.0f, (posY + 360.0f) / 720.0f);
+}
+
+XMFLOAT2 ToUnifiedSpace(XMFLOAT2 pos)
+{
+	return ToUnifiedSpace(pos.x,pos.y);
+}
+
 Scene::Status Game::Update(double dt, Input& input)
 {
+	for (int i = 0; i < asteroidGrid.size(); i++)
+	{
+		for (int j = 0; j < asteroidGrid[i].size(); j++)
+		{
+			asteroidGrid[i][j].clear();
+		}
+	}
+
 	if (spawnTimer.HasFinished())
 	{
 		spawnTimer.RestartWithRemainder();
@@ -131,6 +155,31 @@ Scene::Status Game::Update(double dt, Input& input)
 			i--;
 		}
 	}
+	for (size_t i = 0; i < asteroids.size(); i++)
+	{
+		Asteroid& asteroid = asteroids[i];
+		int minX,maxX,minY,maxY;
+		XMFLOAT2 minPos = ToUnifiedSpace(asteroid.pos.x - asteroid.size, asteroid.pos.y - asteroid.size);
+		XMFLOAT2 maxPos = ToUnifiedSpace(asteroid.pos.x + asteroid.size, asteroid.pos.y + asteroid.size);
+
+		minX = (int)floor(minPos.x * static_cast<float>(asteroidGrid.size()));
+		maxX = (int)ceil(maxPos.x * static_cast<float>(asteroidGrid.size()));
+		minY = (int)floor(minPos.y * static_cast<float>(asteroidGrid[0].size()));
+		maxY = (int)ceil(maxPos.y * static_cast<float>(asteroidGrid[0].size()));
+
+		minX = std::clamp(minX,0, static_cast<int>(asteroidGrid.size()));
+		maxX = std::clamp(maxX,0, static_cast<int>(asteroidGrid.size()));
+		minY = std::clamp(minY,0, static_cast<int>(asteroidGrid[0].size()));
+		maxY = std::clamp(maxY,0, static_cast<int>(asteroidGrid[0].size()));
+
+		for (int y = minY; y < maxY; y++)
+		{
+			for (int x = minX; x < maxX; x++)
+			{
+				asteroidGrid[x][y].push_back(static_cast<int>(i));
+			}
+		}
+	}
 
 	for (size_t i = 0; i < asteroidExplosions.size(); i++)
 	{
@@ -145,20 +194,31 @@ Scene::Status Game::Update(double dt, Input& input)
 	player.Update();
 	if (input.GetKeyState('W') == KeyState::Down)
 	{
-		player.position.y += 30.0 * dt;
+		player.position.y += static_cast<float>(100.0 * dt);
 	}
 	if (input.GetKeyState('A') == KeyState::Down)
 	{
-		player.position.x -= 30.0 * dt;
+		player.position.x -= static_cast<float>(100.0 * dt);
 	}
 	if (input.GetKeyState('S') == KeyState::Down)
 	{
-		player.position.y -= 30.0 * dt;
+		player.position.y -= static_cast<float>(100.0 * dt);
 	}
 	if (input.GetKeyState('D') == KeyState::Down)
 	{
-		player.position.x += 30.0 * dt;
+		player.position.x += static_cast<float>(100.0 * dt);
 	}
+
+	XMFLOAT2 playerPosUnified = ToUnifiedSpace(player.position);
+	playerPosUnified.x = std::clamp(playerPosUnified.x * static_cast<float>(asteroidGrid.size()),0.0f,static_cast<float>(asteroidGrid.size()));
+	playerPosUnified.y = std::clamp(playerPosUnified.y * static_cast<float>(asteroidGrid[0].size()), 0.0f, static_cast<float>(asteroidGrid[0].size()));
+	//Util::Print("Player GridPos: %f  %f", playerPosUnified.x, playerPosUnified.y);
+	auto& asteroidsInCell = asteroidGrid[static_cast<int>(playerPosUnified.x)][static_cast<int>(playerPosUnified.y)];
+	if (asteroidsInCell.size())
+	{
+		BreakAsteroid(asteroidsInCell[0]);
+	}
+
 	//Player rotation towards mouse
 	{
 		XMFLOAT2 mousePos = input.GetMousePos();
@@ -177,12 +237,7 @@ Scene::Status Game::Update(double dt, Input& input)
 		XMVECTOR upVec = XMLoadFloat2(&up);
 		XMVECTOR rightVec = XMLoadFloat2(&right);
 		XMVECTOR playerVec = XMLoadFloat2(&player.position);
-
-		//mouseVec = XMVector2Transform(mouseVec, ortho);
-		//playerVec = XMVector2Transform(playerVec, ortho);
-		//XMStoreFloat2(&mousePos, mouseVec);
-		//player.position = mousePos;
-	
+			
 		XMVECTOR dirToCursor = XMVectorSubtract(mouseVec, playerVec);
 		dirToCursor = XMVector2Normalize(dirToCursor);
 
@@ -451,6 +506,7 @@ void Game::Render(Renderer& renderer)
 	}
 
 	renderer.Clear(0.025f,0.025f,0.025f,1.0f);
+	//renderer.Clear(1,1,1,1.0f);
 
 	auto asteroidMat = renderer.GetAsteroidMaterial();
 	for (size_t i = 0; i < asteroidVertices.size(); i++)
