@@ -95,6 +95,11 @@ public:
 		return &UIMaterial;
 	}
 
+	Material* GetRocketMaterial()
+	{
+		return &rocketMaterial;
+	}
+
 
 	int MakeTextureFrom(const std::string& filePath, bool isSrgb);
 	int MakeTextureArrayFrom(const std::vector<std::string>& filePath, bool isSrgb);
@@ -162,6 +167,7 @@ private:
 
 	Material asteroidMaterial;
 	Material spriteMaterial;
+	Material rocketMaterial;
 	Material UIMaterial;
 
 	std::vector<std::thread> loadingThreads;

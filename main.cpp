@@ -205,7 +205,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 						menu->Init(*renderer);
 					}
 
-					Scene::Status status = menu->Update(deltaMs, input);
+					Scene::Status status = menu->Update(deltaMs, input, *renderer);
 					if (status == Scene::Status::Running)
 					{
 						menu->Render(*renderer);
@@ -233,7 +233,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 						game->Init(*renderer);
 					}
 
-					Scene::Status status = game->Update(deltaMs, input);
+					Scene::Status status = game->Update(deltaMs, input, *renderer);
 					if (status == Scene::Status::Running)
 					{
 						game->Render(*renderer);

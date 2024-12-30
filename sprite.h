@@ -1,16 +1,24 @@
 #pragma once
 #include "renderer.h"
 #include "timer.h"
+
+struct TextureInfo
+{
+	int width, height;
+};
+
+TextureInfo GetTextureInfo(ID3D11ShaderResourceView* texture);
+
 class Sprite
 {
 public:
-	void Init(ComPtr<ID3D11ShaderResourceView> spriteSheet, int spriteNumX, int spriteNumY, float fps);
+	void Init(ID3D11ShaderResourceView* spriteSheet, const TextureInfo& spriteTextureInfo, int spriteNumX, int spriteNumY, float fps);
 	void Update();
 	bool HasFinishedAnimation();
 	void SetSpriteRange(int start, int end);
 	void SetSpriteIndex(int index);
 	int GetSpriteIndex() { return spriteIndex; }
-	ID3D11ShaderResourceView* GetTexture() { return texture.Get(); }
+	ID3D11ShaderResourceView* GetTexture() { return texture; }
 	
 	XMFLOAT2 position;
 	float rotation;
@@ -26,5 +34,5 @@ private:
 	int imageHeight;
 	bool didFinishAnim;
 	Timer animationTimer;
-	ComPtr<ID3D11ShaderResourceView> texture;
+	ID3D11ShaderResourceView* texture;
 };

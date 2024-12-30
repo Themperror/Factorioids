@@ -138,6 +138,28 @@ bool Renderer::Init(HWND& hwnd, size_t width, size_t height)
 				return false;
 		}
 	}
+	{
+		std::vector<uint8_t> rocketVS = Util::ReadFileToVector("rocket_VS.cso");
+		if (rocketVS.size() > 0)
+		{
+			res = device->CreateVertexShader(rocketVS.data(), rocketVS.size(), nullptr, rocketMaterial.vertexShader.GetAddressOf());
+			if (res != S_OK)
+				return false;
+
+			res = device->CreateInputLayout(spriteInputElements.data(), static_cast<UINT>(spriteInputElements.size()), rocketVS.data(), static_cast<UINT>(rocketVS.size()), rocketMaterial.inputLayout.GetAddressOf());
+			if (res != S_OK)
+				return false;
+		}
+	}
+	{
+		std::vector<uint8_t> rocketPS = Util::ReadFileToVector("rocket_PS.cso");
+		if (rocketPS.size() > 0)
+		{
+			res = device->CreatePixelShader(rocketPS.data(), static_cast<UINT>(rocketPS.size()), nullptr, rocketMaterial.pixelShader.GetAddressOf());
+			if (res != S_OK)
+				return false;
+		}
+	}
 	//////////////////
 	
 	//////////////////
@@ -175,9 +197,9 @@ bool Renderer::Init(HWND& hwnd, size_t width, size_t height)
 		device->CreateBlendState(&blendDesc, blendState.GetAddressOf());
 
 		D3D11_SAMPLER_DESC samplerDesc{};
-		samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-		samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-		samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+		samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+		samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+		samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
 		samplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
 		samplerDesc.MaxAnisotropy = 16;
 		samplerDesc.MinLOD = -D3D11_FLOAT32_MAX;

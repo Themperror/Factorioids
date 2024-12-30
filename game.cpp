@@ -17,6 +17,7 @@ void Game::Init(Renderer& renderer)
 	const char* factorioAsteroidPath = "C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/space-age/graphics/entity/asteroid/";
 	const char* factorioAsteroidExplosionPath = "C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/space-age/graphics/entity/asteroid-explosions/";
 	const char* factorioMechPath = "C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/space-age/graphics/entity/mech-armor/mech-idle-air.png";
+	const char* factorioRocketPath = "C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/base/graphics/entity/rocket/";
 
 	int playerTextureHandle= renderer.MakeTextureFrom(factorioMechPath, true);
 
@@ -24,8 +25,13 @@ void Game::Init(Renderer& renderer)
 	std::array<std::array<int, AsteroidType::ENUM_MAX>, AsteroidCategory::ENUM_MAX> asteroidTexturesNormalHandles;
 	std::array<std::array<int, AsteroidType::ENUM_MAX>, AsteroidCategory::ENUM_MAX> asteroidTexturesRoughnessHandles;
 	std::array<int, AsteroidCategory::ENUM_MAX> asteroidExplosionsTextureHandles;
-
 	char buf[512];
+
+	//cache the rocket texture
+	sprintf_s(buf, sizeof(buf), "%s%s", factorioRocketPath, "rocket.png");
+	int rocketColHandle = renderer.MakeTextureFrom(buf,true);
+	sprintf_s(buf, sizeof(buf), "%s%s", factorioRocketPath, "rocket-lights.png");
+	int rocketLightHandle = renderer.MakeTextureFrom(buf,true);
 
 	//cache the asteroid explosion textures
 	sprintf_s(buf, sizeof(buf), "%s%s", factorioAsteroidExplosionPath, "asteroid-explosion-small.png");
@@ -92,14 +98,17 @@ void Game::Init(Renderer& renderer)
 
 	player.vertexBuffer = renderer.CreateVertexBuffer(6, 6, sizeof(XMFLOAT4));
 	player.constantBuffer = renderer.CreateSpriteConstantBuffer(5, 8, 0.1f,  ortho);
+	player.queryConstantBuffer = renderer.CreateSpriteConstantBuffer(5, 8, 0.8f, ortho);
 	
-	for (int i = 0; i < playerQuery.size(); i++)
+	for (int i = 0; i < player.occlusionQuery.size(); i++)
 	{
-		playerQuery[i] = renderer.CreateOcclusionQuery();
+		player.occlusionQuery[i] = renderer.CreateOcclusionQuery();
 	}
 
+	rocketConstantBuffer = renderer.CreateSpriteConstantBuffer(8, 1, 0.2f, ortho);
+	rocketQueryConstantBuffer = renderer.CreateSpriteConstantBuffer(8, 1, 0.8f, ortho);
+
 	asteroidConstantBuffer = renderer.CreateSpriteConstantBuffer(0, 0, 0.5f, ortho);
-	queryConstantBuffer = renderer.CreateSpriteConstantBuffer(5, 8, 0.8f, ortho);
 
 	renderer.FlushLoading();
 
@@ -117,12 +126,18 @@ void Game::Init(Renderer& renderer)
 		asteroidExplosionsTextures[i] = renderer.GetTexture(asteroidExplosionsTextureHandles[i]);
 	}
 
-	player.Init(renderer.GetTexture(playerTextureHandle), 5, 8, 60.0f);
+	rocketTexture = renderer.GetTexture(rocketColHandle);
+	rocketLightTexture = renderer.GetTexture(rocketLightHandle);
+	rocketTexInfo = GetTextureInfo(rocketLightTexture);
+
+	auto playerTexInfo = GetTextureInfo(renderer.GetTexture(playerTextureHandle));
+	player.Init(renderer.GetTexture(playerTextureHandle), playerTexInfo, 5, 8, 60.0f);
 	player.SetSpriteRange(0, 5);
 	player.scale = 20;
 	player.invulnerabilityTimer.Start(3.0);
 
 	spawnTimer.Start(0.3);
+	rocketCooldownTimer.Start(0.25);
 }
 
 
@@ -136,7 +151,7 @@ XMFLOAT2 ToUnifiedSpace(XMFLOAT2 pos)
 	return ToUnifiedSpace(pos.x,pos.y);
 }
 
-Scene::Status Game::Update(double dt, Input& input)
+Scene::Status Game::Update(double dt, Input& input, Renderer& renderer)
 {
 	//for (int i = 0; i < asteroidGrid.size(); i++)
 	//{
@@ -218,7 +233,7 @@ Scene::Status Game::Update(double dt, Input& input)
 		player.position.x += static_cast<float>(100.0 * dt);
 	}
 
-	if (playerQueryResults[currentQueryIndex] && player.invulnerabilityTimer.HasFinished())
+	if (player.occlusionResults[currentQueryIndex] && player.invulnerabilityTimer.HasFinished())
 	{
 		player.invulnerabilityTimer.Restart();
 		player.lives--;
@@ -228,7 +243,7 @@ Scene::Status Game::Update(double dt, Input& input)
 
 
 		AsteroidExplosion& explosion = asteroidExplosions.emplace_back();
-		explosion.Init(asteroidExplosionsTextures[AsteroidCategory::Huge], 5, 5, 60.0f);
+		explosion.Init(asteroidExplosionsTextures[AsteroidCategory::Huge], asteroidExplosionTexInfos[AsteroidCategory::Huge], 5, 5, 60.0f);
 		explosion.position = player.position;
 		explosion.rotation = 0;
 		explosion.scale = player.scale * 2.0f;
@@ -303,6 +318,82 @@ Scene::Status Game::Update(double dt, Input& input)
 			sector = 8-sector;
 		}
 		player.SetSpriteRange(sector * 5, (sector * 5)+5);
+
+
+		if (input.GetKeyState(VK_SPACE) == KeyState::Down)
+		{
+			if (rocketCooldownTimer.HasFinished())
+			{
+				Rocket& rocket = rockets.emplace_back();
+				rocket.Init(rocketTexture, rocketTexInfo, 8,1,60.0f);
+				rocket.vertexBuffer = renderer.CreateVertexBuffer(6,6,sizeof(XMFLOAT4));
+				rocket.position = player.position;
+				for (size_t i = 0; i < rocket.occlusionQuery.size(); i++)
+				{
+					rocket.occlusionQuery[i] = renderer.CreateOcclusionQuery();
+				}
+			
+				float rotation = (direction <= 0) ? (1.0f - dot) / 4.0f : (dot + 3.0f) / 4.0f;
+
+				rotation *= 2.0 * XM_PI;
+				rocket.rotation = rotation;
+				rocket.scale = 2.5f;
+
+				XMFLOAT2 speed = XMFLOAT2(60,60);
+				XMVECTOR speedVec =	XMLoadFloat2(&speed);
+				XMVECTOR accelVec = XMVectorMultiply(dirToCursor, speedVec);
+				XMStoreFloat2(&rocket.acceleration, accelVec);
+
+				rocketCooldownTimer.RestartWithRemainder();
+			}
+		}
+	}
+
+
+	for (size_t i = 0; i < rockets.size(); i++)
+	{
+		Rocket& rocket = rockets[i];
+		rocket.Update();
+
+		rocket.velocity.x += rocket.acceleration.x * dt;
+		rocket.velocity.y += rocket.acceleration.y * dt;
+
+		rocket.position.x += rocket.velocity.x * dt;
+		rocket.position.y += rocket.velocity.y * dt;
+
+		for (size_t j = 0; j < rocket.occlusionResults.size(); j++)
+		{
+			if (rocket.occlusionResults[j])
+			{
+				int closestAsteroidIndex = -1;
+				float dist = FLT_MAX;
+				XMVECTOR rocketPos = XMLoadFloat2(&rocket.position);
+				for (size_t x = 0; x < asteroids.size(); x++)
+				{
+					XMVECTOR asteroidPos = XMLoadFloat2(&asteroids[x].pos);
+					float currentDist; 
+					XMStoreFloat(&currentDist, XMVector2LengthSq(XMVectorSubtract(rocketPos, asteroidPos)));
+					if (currentDist < dist)
+					{
+						dist = currentDist;
+						closestAsteroidIndex = x;
+					}
+				}
+
+				BreakAsteroid(closestAsteroidIndex);
+
+				SwapAndPop(rockets,i);
+				i--;
+				break;
+			}
+		}
+
+		if (rocket.position.x < -1000 || rocket.position.x > 1000 || rocket.position.y < -500 || rocket.position.y > 500)
+		{
+
+			SwapAndPop(rockets, i);
+			i--;
+		}
 	}
 
 	return Status::Running;
@@ -322,7 +413,7 @@ void Game::BreakAsteroid(size_t asteroidIndex)
 	XMFLOAT2 position = asteroid.pos;
 
 	AsteroidExplosion& explosion = asteroidExplosions.emplace_back();
-	explosion.Init(asteroidExplosionsTextures[category], 5,5, 60.0f);
+	explosion.Init(asteroidExplosionsTextures[category], asteroidExplosionTexInfos[category], 5,5, 60.0f);
 	explosion.position = position;
 	explosion.rotation = asteroid.rot;
 	explosion.scale = asteroid.size;
@@ -448,19 +539,19 @@ void Game::SpawnAsteroid(AsteroidType::Type asteroidType, AsteroidCategory::Cate
 }
 
 
-void CreateQuad(XMFLOAT2 position, float rotation, float size, float customData, std::vector<XMFLOAT4>& buffer)
+void CreateQuad(XMFLOAT2 position, float rotation, float sizeX, float sizeY, float customData, std::vector<XMFLOAT4>& buffer)
 {
 	size_t vertexIndex = buffer.size();
 
 	XMVECTOR pos = XMLoadFloat2(&position);
 	XMMATRIX TRS = XMMatrixTransformation2D(XMVectorZero(), 0, XMVectorSplatOne(), XMVectorZero(), rotation, pos);
-	buffer.push_back(XMFLOAT4(-(size), +(size), 0, 0));
-	buffer.push_back(XMFLOAT4(+(size), +(size), 0, 0));
-	buffer.push_back(XMFLOAT4(-(size), -(size), 0, 0));
+	buffer.push_back(XMFLOAT4(-(sizeX), +(sizeY), 0, 0));
+	buffer.push_back(XMFLOAT4(+(sizeX), +(sizeY), 0, 0));
+	buffer.push_back(XMFLOAT4(-(sizeX), -(sizeY), 0, 0));
 	
-	buffer.push_back(XMFLOAT4(+(size), +(size), 0, 0));
-	buffer.push_back(XMFLOAT4(+(size), -(size), 0, 0));
-	buffer.push_back(XMFLOAT4(-(size), -(size), 0, 0));
+	buffer.push_back(XMFLOAT4(+(sizeX), +(sizeY), 0, 0));
+	buffer.push_back(XMFLOAT4(+(sizeX), -(sizeY), 0, 0));
+	buffer.push_back(XMFLOAT4(-(sizeX), -(sizeY), 0, 0));
 
 	XMVECTOR posTL = XMLoadFloat4(&buffer[vertexIndex + 0]);
 	XMVECTOR posTR = XMLoadFloat4(&buffer[vertexIndex + 1]);
@@ -515,7 +606,7 @@ void Game::Render(Renderer& renderer)
 		{
 			Asteroid& asteroid = asteroids[i];
 			auto& activeBuffer = asteroidBufferData[asteroid.category][asteroid.type];
-			CreateQuad(asteroid.pos, asteroid.rot, asteroid.size, static_cast<float>(asteroid.variation), activeBuffer);
+			CreateQuad(asteroid.pos, asteroid.rot, asteroid.size, asteroid.size, static_cast<float>(asteroid.variation), activeBuffer);
 		}
 
 		for (size_t i = 0; i < asteroidVertices.size(); i++)
@@ -538,7 +629,7 @@ void Game::Render(Renderer& renderer)
 		for (size_t i = 0; i < asteroidExplosions.size(); i++)
 		{
 			auto& explode = asteroidExplosions[i];
-			CreateQuad(explode.position, explode.rotation, explode.scale, static_cast<float>(explode.GetSpriteIndex()), asteroidExplosionBufferData[explode.category]);
+			CreateQuad(explode.position, explode.rotation, explode.scale, explode.scale, static_cast<float>(explode.GetSpriteIndex()), asteroidExplosionBufferData[explode.category]);
 		}
 
 		for (size_t i = 0; i < asteroidExplosionVertices.size(); i++)
@@ -547,10 +638,18 @@ void Game::Render(Renderer& renderer)
 		}
 	}
 
+	for (size_t i = 0; i < rockets.size(); i++)
+	{
+		Rocket& rocket = rockets[i];
+		rocket.vertices.clear();
+		CreateQuad(rocket.position, rocket.rotation, rocket.scale, rocket.scale * 5.0f, static_cast<float>(rocket.GetSpriteIndex()), rocket.vertices);
+		renderer.UpdateVertexBuffer(rocket.vertexBuffer, rocket.vertices);
+	}
+
 	//Player
 	{
 		player.vertices.clear();
-		CreateQuad(player.position, 0, player.scale, static_cast<float>(player.GetSpriteIndex()), player.vertices);
+		CreateQuad(player.position, 0, player.scale, player.scale, static_cast<float>(player.GetSpriteIndex()), player.vertices);
 		renderer.UpdateVertexBuffer(player.vertexBuffer, player.vertices);
 	}
 
@@ -564,9 +663,9 @@ void Game::Render(Renderer& renderer)
 		{
 			std::array<ID3D11ShaderResourceView*, 3> srvs =
 			{
-				asteroidTexturesDiffuse[j][i].Get(),
-				asteroidTexturesNormal[j][i].Get(),
-				asteroidTexturesRoughness[j][i].Get(),
+				asteroidTexturesDiffuse[j][i],
+				asteroidTexturesNormal[j][i],
+				asteroidTexturesRoughness[j][i],
 			};
 			//only need the ortho matrix, so player's CBV will do
 			std::array<ID3D11Buffer*, 1> cbs =
@@ -579,11 +678,12 @@ void Game::Render(Renderer& renderer)
 	}
 
 	auto spriteMaterial = renderer.GetSpriteMaterial();
+	auto rocketMaterial = renderer.GetRocketMaterial();
 	for (size_t i = 0; i < asteroidExplosionVertices.size(); i++)
 	{
 		std::array<ID3D11ShaderResourceView*, 1> srvs =
 		{
-			asteroidExplosionsTextures[i].Get(),
+			asteroidExplosionsTextures[i],
 		};
 		std::array<ID3D11Buffer*, 1> cbs =
 		{
@@ -596,23 +696,39 @@ void Game::Render(Renderer& renderer)
 		std::array<ID3D11ShaderResourceView*, 1> srvs =
 		{
 			player.GetTexture(),
+		};	
+		std::array<ID3D11ShaderResourceView*, 2> srvsRocket =
+		{
+			rocketTexture,
+			rocketLightTexture,
 		};
 		std::array<ID3D11Buffer*, 1> cbsQuery =
 		{
-			queryConstantBuffer.Get(),
+			player.queryConstantBuffer.Get(),
 		};
 		std::array<ID3D11Buffer*, 1> cbsPlayer =
 		{
 			player.constantBuffer.Get(),
+		};
+		std::array<ID3D11Buffer*, 1> cbsRocket =
+		{
+			rocketConstantBuffer.Get(),
 		};
 
 
 		//Inverse the depth check so we only get pass results from query if we're overlapping an asteroid
 		renderer.SetDepthGreater();
 
-		renderer.BeginQuery(playerQuery[currentQueryIndex].Get());
+		renderer.BeginQuery(player.occlusionQuery[currentQueryIndex].Get());
 		renderer.Draw(player.vertexBuffer, spriteMaterial, srvs, cbsQuery);
-		renderer.EndQuery(playerQuery[currentQueryIndex].Get());
+		renderer.EndQuery(player.occlusionQuery[currentQueryIndex].Get());
+
+		for (size_t i = 0; i < rockets.size(); i++)
+		{
+			renderer.BeginQuery(rockets[i].occlusionQuery[currentQueryIndex].Get());
+			renderer.Draw(rockets[i].vertexBuffer, rocketMaterial, srvs, cbsQuery);
+			renderer.EndQuery(rockets[i].occlusionQuery[currentQueryIndex].Get());
+		}
 
 		//back to "normal" depth
 		renderer.SetDepthLesser();
@@ -621,13 +737,21 @@ void Game::Render(Renderer& renderer)
 			renderer.Draw(player.vertexBuffer, spriteMaterial, srvs, cbsPlayer);
 		}
 
+		for (size_t i = 0; i < rockets.size(); i++)
+		{
+			renderer.Draw(rockets[i].vertexBuffer, rocketMaterial, srvsRocket, cbsRocket);
+		}
 	}
-	currentQueryIndex = (currentQueryIndex+1) % playerQuery.size();	
+	currentQueryIndex = (currentQueryIndex+1) % player.occlusionQuery.size();
 
-	bool res = renderer.GetQueryResult(playerQuery[currentQueryIndex].Get(), playerQueryResults[currentQueryIndex]);
+	bool res = renderer.GetQueryResult(player.occlusionQuery[currentQueryIndex].Get(), player.occlusionResults[currentQueryIndex]);
 	if (!res)
 	{
-		playerQueryResults[currentQueryIndex] = 0;
+		player.occlusionResults[currentQueryIndex] = 0;
+	}
+	for (size_t i = 0; i < rockets.size(); i++)
+	{
+		res = renderer.GetQueryResult(rockets[i].occlusionQuery[currentQueryIndex].Get(), rockets[i].occlusionResults[currentQueryIndex]);
 	}
 
 }
