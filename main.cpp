@@ -194,7 +194,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 			old = now;
 			now = std::chrono::high_resolution_clock::now();
 			delta = now - old;
-			double deltaMs = std::chrono::duration_cast<std::chrono::milliseconds>(delta).count() / 1000.0;
+			double deltaMs = std::chrono::duration_cast<std::chrono::nanoseconds>(delta).count() / 1000'000'000.0;
 			switch (sceneState)
 			{
 				case SceneState::Menu:
