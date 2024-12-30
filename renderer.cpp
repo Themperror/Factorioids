@@ -277,7 +277,6 @@ void Renderer::LoadingThread()
 	}
 }
 
-
 void Renderer::Resize(size_t width, size_t height)
 {
 	swapchain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
@@ -301,7 +300,7 @@ void Renderer::Resize(size_t width, size_t height)
 	device->CreateDepthStencilView(dsvTex.Get(), &dsvDesc, depthTarget.ReleaseAndGetAddressOf());
 }
 
-ComPtr<ID3D11Buffer> Renderer::CreateSpriteConstantBuffer(int numSpriteX, int numSpriteY)
+ComPtr<ID3D11Buffer> Renderer::CreateSpriteConstantBuffer(int numSpriteX, int numSpriteY, const XMMATRIX& ortho)
 {
 	struct
 	{
@@ -309,11 +308,13 @@ ComPtr<ID3D11Buffer> Renderer::CreateSpriteConstantBuffer(int numSpriteX, int nu
 		int numY;
 		int pad0;
 		int pad1;
+		XMFLOAT4X4 orthoMat;
 
 	} SpriteData;
 
 	SpriteData.numX = numSpriteX;
 	SpriteData.numY = numSpriteY;
+	XMStoreFloat4x4(&SpriteData.orthoMat, ortho);
 
 	D3D11_BUFFER_DESC desc{};
 	desc.ByteWidth = static_cast<UINT>(sizeof(SpriteData));

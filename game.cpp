@@ -30,7 +30,7 @@ void Game::Init(Renderer& renderer)
 	//cache the asteroid explosion textures
 	sprintf_s(buf, sizeof(buf), "%s%s", factorioAsteroidExplosionPath, "asteroid-explosion-small.png");
 	asteroidExplosionsTextureHandles[AsteroidCategory::Small] = renderer.MakeTextureFrom(buf, true);
-	asteroidExplosionConstantData[AsteroidCategory::Small] = renderer.CreateSpriteConstantBuffer(6,6);
+	asteroidExplosionConstantData[AsteroidCategory::Small] = renderer.CreateSpriteConstantBuffer(6,6, ortho);
 	sprintf_s(buf, sizeof(buf), "%s%s", factorioAsteroidExplosionPath, "asteroid-explosion-medium.png");
 	asteroidExplosionsTextureHandles[AsteroidCategory::Medium] = renderer.MakeTextureFrom(buf, true);
 	asteroidExplosionConstantData[AsteroidCategory::Medium] = asteroidExplosionConstantData[AsteroidCategory::Small];
@@ -91,7 +91,7 @@ void Game::Init(Renderer& renderer)
 	}
 
 	player.vertexBuffer = renderer.CreateVertexBuffer(6, 6, sizeof(XMFLOAT4));
-	player.constantBuffer = renderer.CreateSpriteConstantBuffer(5, 8);
+	player.constantBuffer = renderer.CreateSpriteConstantBuffer(5, 8, ortho);
 
 	renderer.FlushLoading();
 
@@ -400,7 +400,7 @@ void Game::SpawnAsteroid(AsteroidType::Type asteroidType, AsteroidCategory::Cate
 }
 
 
-void CreateQuad(XMFLOAT2 position, float rotation, float size, float customData, XMMATRIX& ortho, std::vector<XMFLOAT4>& buffer)
+void CreateQuad(XMFLOAT2 position, float rotation, float size, float customData, std::vector<XMFLOAT4>& buffer)
 {
 	size_t vertexIndex = buffer.size();
 
@@ -419,10 +419,10 @@ void CreateQuad(XMFLOAT2 position, float rotation, float size, float customData,
 	XMVECTOR posBL = XMLoadFloat4(&buffer[vertexIndex + 2]);
 	XMVECTOR posBR = XMLoadFloat4(&buffer[vertexIndex + 4]);
 
-	posTL = XMVector2Transform(XMVector2Transform(posTL, TRS), ortho);
-	posTR = XMVector2Transform(XMVector2Transform(posTR, TRS), ortho);
-	posBL = XMVector2Transform(XMVector2Transform(posBL, TRS), ortho);
-	posBR = XMVector2Transform(XMVector2Transform(posBR, TRS), ortho);
+	posTL = XMVector2Transform(posTL, TRS);
+	posTR = XMVector2Transform(posTR, TRS);
+	posBL = XMVector2Transform(posBL, TRS);
+	posBR = XMVector2Transform(posBR, TRS);
 
 	XMStoreFloat4(&buffer[vertexIndex + 0], posTL);
 	XMStoreFloat4(&buffer[vertexIndex + 1], posTR);
@@ -466,7 +466,7 @@ void Game::Render(Renderer& renderer)
 		{
 			Asteroid& asteroid = asteroids[i];
 			auto& activeBuffer = asteroidBufferData[asteroid.category][asteroid.type];
-			CreateQuad(asteroid.pos, asteroid.rot, asteroid.size, static_cast<float>(asteroid.variation), ortho, activeBuffer);
+			CreateQuad(asteroid.pos, asteroid.rot, asteroid.size, static_cast<float>(asteroid.variation), activeBuffer);
 		}
 
 		for (size_t i = 0; i < asteroidVertices.size(); i++)
@@ -489,7 +489,7 @@ void Game::Render(Renderer& renderer)
 		for (size_t i = 0; i < asteroidExplosions.size(); i++)
 		{
 			auto& explode = asteroidExplosions[i];
-			CreateQuad(explode.position, explode.rotation, explode.scale, static_cast<float>(explode.GetSpriteIndex()), ortho, asteroidExplosionBufferData[explode.category]);
+			CreateQuad(explode.position, explode.rotation, explode.scale, static_cast<float>(explode.GetSpriteIndex()), asteroidExplosionBufferData[explode.category]);
 		}
 
 		for (size_t i = 0; i < asteroidExplosionVertices.size(); i++)
@@ -501,7 +501,7 @@ void Game::Render(Renderer& renderer)
 	//Player
 	{
 		player.vertices.clear();
-		CreateQuad(player.position, 0, player.scale, static_cast<float>(player.GetSpriteIndex()), ortho, player.vertices);
+		CreateQuad(player.position, 0, player.scale, static_cast<float>(player.GetSpriteIndex()), player.vertices);
 		renderer.UpdateVertexBuffer(player.vertexBuffer, player.vertices);
 	}
 
@@ -519,7 +519,11 @@ void Game::Render(Renderer& renderer)
 				asteroidTexturesNormal[j][i].Get(),
 				asteroidTexturesRoughness[j][i].Get(),
 			};
-			std::array<ID3D11Buffer*,0> cbs;
+			//only need the ortho matrix, so player's CBV will do
+			std::array<ID3D11Buffer*, 1> cbs =
+			{
+				player.constantBuffer.Get(),
+			};
 
 			renderer.Draw(asteroidVertices[j][i], asteroidMat, srvs, cbs);
 		}

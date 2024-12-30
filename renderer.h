@@ -54,7 +54,7 @@ public:
 	bool Init(HWND& hwnd, size_t width, size_t height);
 	void Resize(size_t width, size_t height);
 
-	ComPtr<ID3D11Buffer> CreateSpriteConstantBuffer(int numSpriteX, int numSpriteY);
+	ComPtr<ID3D11Buffer> CreateSpriteConstantBuffer(int numSpriteX, int numSpriteY, const XMMATRIX& ortho);
 
 	VertexBuffer CreateVertexBuffer(size_t vertexAmount, size_t vertexCapacity, size_t vertexSize);
 
