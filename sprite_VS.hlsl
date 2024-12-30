@@ -8,15 +8,16 @@ struct SpriteUniform
 {
 	int numX;
 	int numY;
-	int2 pad;
+	float baseDepth;
+	float pad;
 	matrix ortho;
 } spriteData : register(c0);
 
 VS_OUT main(float4 pos : POS, uint vertexID : SV_VertexID)
 {
 	VS_OUT vsOut;
-	vsOut.pos.xy = mul(pos.xy, (float2x4)spriteData.ortho).xy;
-	vsOut.pos.zw = float2(pos.z * 0.0001, 1.0);
+	vsOut.pos.xy = mul(pos.xy, (float2x4) spriteData.ortho).xy;
+	vsOut.pos.zw = float2(spriteData.baseDepth + abs(pos.z) * 0.0001, 1.0);
 	vertexID = vertexID % 6;
 	
 	float spriteWidth = 1.0 / (float) spriteData.numX;

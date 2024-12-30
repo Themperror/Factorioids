@@ -10,12 +10,13 @@ public:
 		duration = durationSeconds;
 		remainder = 0;
 		this->remainderLeeway = remainderLeeway;
+		running = true;
 	}
 
 	bool HasFinished()
 	{
 		std::chrono::duration<double> delta = (std::chrono::high_resolution_clock::now() - start);
-		return delta.count() + remainder > duration;
+		return running && delta.count() + remainder > duration;
 	}
 	
 	void Restart()
@@ -34,6 +35,11 @@ public:
 		start = std::chrono::high_resolution_clock::now();
 	}
 
+	void Stop()
+	{
+		running = false;
+	}
+
 	double GetProgress()
 	{
 		std::chrono::duration<double>  delta = std::chrono::high_resolution_clock::now() - start;
@@ -50,4 +56,5 @@ private:
 	double remainder;
 	double duration;
 	double remainderLeeway;
+	bool running = false;
 };

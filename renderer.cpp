@@ -151,7 +151,10 @@ bool Renderer::Init(HWND& hwnd, size_t width, size_t height)
 		depthDesc.DepthFunc = D3D11_COMPARISON_LESS;
 		depthDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
 		depthDesc.StencilEnable = false;
-		device->CreateDepthStencilState(&depthDesc, depthState.GetAddressOf());
+		device->CreateDepthStencilState(&depthDesc, depthStateLesser.GetAddressOf());
+
+		depthDesc.DepthFunc = D3D11_COMPARISON_GREATER;
+		device->CreateDepthStencilState(&depthDesc, depthStateGreater.GetAddressOf());
 
 		D3D11_RASTERIZER_DESC rasterDesc{};
 		rasterDesc.AntialiasedLineEnable = false;
@@ -300,20 +303,31 @@ void Renderer::Resize(size_t width, size_t height)
 	device->CreateDepthStencilView(dsvTex.Get(), &dsvDesc, depthTarget.ReleaseAndGetAddressOf());
 }
 
-ComPtr<ID3D11Buffer> Renderer::CreateSpriteConstantBuffer(int numSpriteX, int numSpriteY, const XMMATRIX& ortho)
+void Renderer::SetDepthLesser()
+{
+	context->OMSetDepthStencilState(depthStateLesser.Get(), 0);
+}
+void Renderer::SetDepthGreater()
+{
+	context->OMSetDepthStencilState(depthStateGreater.Get(), 0);
+}
+
+ComPtr<ID3D11Buffer> Renderer::CreateSpriteConstantBuffer(int numSpriteX, int numSpriteY, float baseDepth, const XMMATRIX& ortho)
 {
 	struct
 	{
 		int numX;
 		int numY;
-		int pad0;
-		int pad1;
+		float baseDepth;
+		float pad;
 		XMFLOAT4X4 orthoMat;
 
 	} SpriteData;
 
 	SpriteData.numX = numSpriteX;
 	SpriteData.numY = numSpriteY;
+	SpriteData.baseDepth = baseDepth;
+	SpriteData.pad = 0.0f;
 	XMStoreFloat4x4(&SpriteData.orthoMat, ortho);
 
 	D3D11_BUFFER_DESC desc{};
@@ -576,6 +590,35 @@ void Renderer::BeginDraw()
 	viewPort.MinDepth = 0;
 	viewPort.MaxDepth = 1;
 	context->RSSetViewports(1, &viewPort);
+}
+
+void Renderer::BeginQuery(ID3D11Query* query)
+{
+	context->Begin(query);
+}
+void Renderer::EndQuery(ID3D11Query* query)
+{
+	context->End(query);
+}
+bool Renderer::GetQueryResult(ID3D11Query* query, uint64_t& result)
+{
+	HRESULT res = context->GetData(query, &result, sizeof(uint64_t), 0);
+	while (res != S_OK && res != DXGI_ERROR_INVALID_CALL)
+	{
+		res = context->GetData(query, &result, sizeof(uint64_t), 0);
+		//Util::Print("Query: %08X", res);
+	}
+	//Util::Print("Query: %08X", res);
+	return res == S_OK;
+}
+
+ComPtr<ID3D11Query> Renderer::CreateOcclusionQuery()
+{
+	ComPtr<ID3D11Query> query;
+	D3D11_QUERY_DESC desc{};
+	desc.Query = D3D11_QUERY_OCCLUSION;
+	device->CreateQuery(&desc, query.GetAddressOf());
+	return query;
 }
 
 void Renderer::FlushLoading()

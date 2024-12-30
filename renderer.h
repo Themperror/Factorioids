@@ -54,7 +54,7 @@ public:
 	bool Init(HWND& hwnd, size_t width, size_t height);
 	void Resize(size_t width, size_t height);
 
-	ComPtr<ID3D11Buffer> CreateSpriteConstantBuffer(int numSpriteX, int numSpriteY, const XMMATRIX& ortho);
+	ComPtr<ID3D11Buffer> CreateSpriteConstantBuffer(int numSpriteX, int numSpriteY, float baseDepth, const XMMATRIX& ortho);
 
 	VertexBuffer CreateVertexBuffer(size_t vertexAmount, size_t vertexCapacity, size_t vertexSize);
 
@@ -101,6 +101,13 @@ public:
 	ID3D11ShaderResourceView* GetTexture(int handle) { return textures[handle].Get();};
 	void Clear(float r, float g, float b, float a);
 	void BeginDraw();
+	void BeginQuery(ID3D11Query* query);
+	void EndQuery(ID3D11Query* query);
+	bool GetQueryResult(ID3D11Query* query, uint64_t& result);
+	ComPtr<ID3D11Query> CreateOcclusionQuery();
+
+	void SetDepthLesser();
+	void SetDepthGreater();
 
 	template<typename T, typename U>
 	void Draw(VertexBuffer& vertexBuffer, Material* material, const T& textures, const U& VSConstantBuffers)
@@ -110,6 +117,7 @@ public:
 			context->PSSetShader(material->pixelShader.Get(), nullptr, 0);
 			context->VSSetShader(material->vertexShader.Get(), nullptr, 0);
 			context->IASetInputLayout(material->inputLayout.Get());
+			currentMaterial = material;
 		}
 
 		context->VSSetConstantBuffers(0, static_cast<UINT>(VSConstantBuffers.size()), VSConstantBuffers.data());
@@ -158,7 +166,8 @@ private:
 
 	std::vector<std::thread> loadingThreads;
 
-	ComPtr<ID3D11DepthStencilState> depthState;
+	ComPtr<ID3D11DepthStencilState> depthStateLesser;
+	ComPtr<ID3D11DepthStencilState> depthStateGreater;
 	ComPtr<ID3D11RasterizerState> rasterState;
 	ComPtr<ID3D11BlendState> blendState;
 	ComPtr<ID3D11SamplerState> samplerState;

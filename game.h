@@ -14,6 +14,14 @@ struct Player : Sprite
 	std::vector<XMFLOAT4> vertices;
 	VertexBuffer vertexBuffer;
 	ComPtr<ID3D11Buffer> constantBuffer;
+	int lives = 3;
+	Timer invulnerabilityTimer;
+
+	//these variables are used to flicker the player sprite after being hit
+	Timer lostLifeTimer;
+	int lostLifeCounter = 0;
+	bool shouldDraw = true;
+	/////////
 
 };
 
@@ -30,6 +38,13 @@ public:
 private:
 	Timer spawnTimer;
 	Player player;
+	std::array<ComPtr<ID3D11Query>,3> playerQuery;
+	std::array<uint64_t,3> playerQueryResults;
+	size_t currentQueryIndex = 0;
+
+	ComPtr<ID3D11Buffer> asteroidConstantBuffer;
+	ComPtr<ID3D11Buffer> queryConstantBuffer;
+
 	std::vector<Asteroid> asteroids;
 	std::vector<AsteroidExplosion> asteroidExplosions;
 

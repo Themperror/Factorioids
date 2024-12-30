@@ -30,7 +30,7 @@ void Game::Init(Renderer& renderer)
 	//cache the asteroid explosion textures
 	sprintf_s(buf, sizeof(buf), "%s%s", factorioAsteroidExplosionPath, "asteroid-explosion-small.png");
 	asteroidExplosionsTextureHandles[AsteroidCategory::Small] = renderer.MakeTextureFrom(buf, true);
-	asteroidExplosionConstantData[AsteroidCategory::Small] = renderer.CreateSpriteConstantBuffer(6,6, ortho);
+	asteroidExplosionConstantData[AsteroidCategory::Small] = renderer.CreateSpriteConstantBuffer(6,6, 0.2f, ortho);
 	sprintf_s(buf, sizeof(buf), "%s%s", factorioAsteroidExplosionPath, "asteroid-explosion-medium.png");
 	asteroidExplosionsTextureHandles[AsteroidCategory::Medium] = renderer.MakeTextureFrom(buf, true);
 	asteroidExplosionConstantData[AsteroidCategory::Medium] = asteroidExplosionConstantData[AsteroidCategory::Small];
@@ -91,7 +91,15 @@ void Game::Init(Renderer& renderer)
 	}
 
 	player.vertexBuffer = renderer.CreateVertexBuffer(6, 6, sizeof(XMFLOAT4));
-	player.constantBuffer = renderer.CreateSpriteConstantBuffer(5, 8, ortho);
+	player.constantBuffer = renderer.CreateSpriteConstantBuffer(5, 8, 0.1f,  ortho);
+	
+	for (int i = 0; i < playerQuery.size(); i++)
+	{
+		playerQuery[i] = renderer.CreateOcclusionQuery();
+	}
+
+	asteroidConstantBuffer = renderer.CreateSpriteConstantBuffer(0, 0, 0.5f, ortho);
+	queryConstantBuffer = renderer.CreateSpriteConstantBuffer(5, 8, 0.8f, ortho);
 
 	renderer.FlushLoading();
 
@@ -112,6 +120,7 @@ void Game::Init(Renderer& renderer)
 	player.Init(renderer.GetTexture(playerTextureHandle), 5, 8, 60.0f);
 	player.SetSpriteRange(0, 5);
 	player.scale = 20;
+	player.invulnerabilityTimer.Start(3.0);
 
 	spawnTimer.Start(0.3);
 }
@@ -129,13 +138,13 @@ XMFLOAT2 ToUnifiedSpace(XMFLOAT2 pos)
 
 Scene::Status Game::Update(double dt, Input& input)
 {
-	for (int i = 0; i < asteroidGrid.size(); i++)
-	{
-		for (int j = 0; j < asteroidGrid[i].size(); j++)
-		{
-			asteroidGrid[i][j].clear();
-		}
-	}
+	//for (int i = 0; i < asteroidGrid.size(); i++)
+	//{
+	//	for (int j = 0; j < asteroidGrid[i].size(); j++)
+	//	{
+	//		asteroidGrid[i][j].clear();
+	//	}
+	//}
 
 	if (spawnTimer.HasFinished())
 	{
@@ -155,31 +164,31 @@ Scene::Status Game::Update(double dt, Input& input)
 			i--;
 		}
 	}
-	for (size_t i = 0; i < asteroids.size(); i++)
-	{
-		Asteroid& asteroid = asteroids[i];
-		int minX,maxX,minY,maxY;
-		XMFLOAT2 minPos = ToUnifiedSpace(asteroid.pos.x - asteroid.size, asteroid.pos.y - asteroid.size);
-		XMFLOAT2 maxPos = ToUnifiedSpace(asteroid.pos.x + asteroid.size, asteroid.pos.y + asteroid.size);
-
-		minX = (int)floor(minPos.x * static_cast<float>(asteroidGrid.size()));
-		maxX = (int)ceil(maxPos.x * static_cast<float>(asteroidGrid.size()));
-		minY = (int)floor(minPos.y * static_cast<float>(asteroidGrid[0].size()));
-		maxY = (int)ceil(maxPos.y * static_cast<float>(asteroidGrid[0].size()));
-
-		minX = std::clamp(minX,0, static_cast<int>(asteroidGrid.size()));
-		maxX = std::clamp(maxX,0, static_cast<int>(asteroidGrid.size()));
-		minY = std::clamp(minY,0, static_cast<int>(asteroidGrid[0].size()));
-		maxY = std::clamp(maxY,0, static_cast<int>(asteroidGrid[0].size()));
-
-		for (int y = minY; y < maxY; y++)
-		{
-			for (int x = minX; x < maxX; x++)
-			{
-				asteroidGrid[x][y].push_back(static_cast<int>(i));
-			}
-		}
-	}
+	//for (size_t i = 0; i < asteroids.size(); i++)
+	//{
+	//	Asteroid& asteroid = asteroids[i];
+	//	int minX,maxX,minY,maxY;
+	//	XMFLOAT2 minPos = ToUnifiedSpace(asteroid.pos.x - asteroid.size, asteroid.pos.y - asteroid.size);
+	//	XMFLOAT2 maxPos = ToUnifiedSpace(asteroid.pos.x + asteroid.size, asteroid.pos.y + asteroid.size);
+	//
+	//	minX = (int)floor(minPos.x * static_cast<float>(asteroidGrid.size()));
+	//	maxX = (int)ceil(maxPos.x * static_cast<float>(asteroidGrid.size()));
+	//	minY = (int)floor(minPos.y * static_cast<float>(asteroidGrid[0].size()));
+	//	maxY = (int)ceil(maxPos.y * static_cast<float>(asteroidGrid[0].size()));
+	//
+	//	minX = std::clamp(minX,0, static_cast<int>(asteroidGrid.size()));
+	//	maxX = std::clamp(maxX,0, static_cast<int>(asteroidGrid.size()));
+	//	minY = std::clamp(minY,0, static_cast<int>(asteroidGrid[0].size()));
+	//	maxY = std::clamp(maxY,0, static_cast<int>(asteroidGrid[0].size()));
+	//
+	//	for (int y = minY; y < maxY; y++)
+	//	{
+	//		for (int x = minX; x < maxX; x++)
+	//		{
+	//			asteroidGrid[x][y].push_back(static_cast<int>(i));
+	//		}
+	//	}
+	//}
 
 	for (size_t i = 0; i < asteroidExplosions.size(); i++)
 	{
@@ -209,15 +218,54 @@ Scene::Status Game::Update(double dt, Input& input)
 		player.position.x += static_cast<float>(100.0 * dt);
 	}
 
-	XMFLOAT2 playerPosUnified = ToUnifiedSpace(player.position);
-	playerPosUnified.x = std::clamp(playerPosUnified.x * static_cast<float>(asteroidGrid.size()),0.0f,static_cast<float>(asteroidGrid.size()));
-	playerPosUnified.y = std::clamp(playerPosUnified.y * static_cast<float>(asteroidGrid[0].size()), 0.0f, static_cast<float>(asteroidGrid[0].size()));
-	//Util::Print("Player GridPos: %f  %f", playerPosUnified.x, playerPosUnified.y);
-	auto& asteroidsInCell = asteroidGrid[static_cast<int>(playerPosUnified.x)][static_cast<int>(playerPosUnified.y)];
-	if (asteroidsInCell.size())
+	if (playerQueryResults[currentQueryIndex] && player.invulnerabilityTimer.HasFinished())
 	{
-		BreakAsteroid(asteroidsInCell[0]);
+		player.invulnerabilityTimer.Restart();
+		player.lives--;
+		player.lostLifeTimer.Start(0.33);
+		player.lostLifeCounter = 0;
+		player.shouldDraw = false;
+
+
+		AsteroidExplosion& explosion = asteroidExplosions.emplace_back();
+		explosion.Init(asteroidExplosionsTextures[AsteroidCategory::Huge], 5, 5, 60.0f);
+		explosion.position = player.position;
+		explosion.rotation = 0;
+		explosion.scale = player.scale * 2.0f;
+		explosion.category = AsteroidCategory::Huge;
+
+		if (player.lives < 0)
+		{
+			player.position.x = 0;
+			player.position.y = 0;
+		}
+
 	}
+	if (player.lostLifeTimer.HasFinished())
+	{
+		player.lostLifeCounter++;
+		player.shouldDraw = !player.shouldDraw;
+		player.lostLifeTimer.RestartWithRemainder();
+	}
+	if (player.invulnerabilityTimer.HasFinished())
+	{
+		player.lostLifeTimer.Stop();
+		player.shouldDraw = true;
+	}
+
+
+
+	//XMFLOAT2 playerPosUnified = ToUnifiedSpace(player.position);
+	//playerPosUnified.x = std::clamp(playerPosUnified.x * static_cast<float>(asteroidGrid.size()),0.0f,static_cast<float>(asteroidGrid.size()));
+	//playerPosUnified.y = std::clamp(playerPosUnified.y * static_cast<float>(asteroidGrid[0].size()), 0.0f, static_cast<float>(asteroidGrid[0].size()));
+	//Util::Print("Player GridPos: %f  %f", playerPosUnified.x, playerPosUnified.y);
+	//auto& asteroidsInCell = asteroidGrid[static_cast<int>(playerPosUnified.x)][static_cast<int>(playerPosUnified.y)];
+	//if (asteroidsInCell.size())
+	//{
+	//	BreakAsteroid(asteroidsInCell[0]);
+	//}
+
+	//Util::Print("Query Results: [%08llu]  [%08llu]  [%08llu]", playerQueryResults[0], playerQueryResults[1], playerQueryResults[2]);
 
 	//Player rotation towards mouse
 	{
@@ -450,7 +498,8 @@ void CreateQuad(XMFLOAT2 position, float rotation, float size, float customData,
 
 void Game::Render(Renderer& renderer)
 {
-	
+
+	renderer.SetDepthLesser();
 	//Asteroids
 	{
 		for (size_t cat = 0; cat < AsteroidCategory::ENUM_MAX; cat++)
@@ -522,7 +571,7 @@ void Game::Render(Renderer& renderer)
 			//only need the ortho matrix, so player's CBV will do
 			std::array<ID3D11Buffer*, 1> cbs =
 			{
-				player.constantBuffer.Get(),
+				asteroidConstantBuffer.Get(),
 			};
 
 			renderer.Draw(asteroidVertices[j][i], asteroidMat, srvs, cbs);
@@ -548,11 +597,37 @@ void Game::Render(Renderer& renderer)
 		{
 			player.GetTexture(),
 		};
-		std::array<ID3D11Buffer*, 1> cbs =
+		std::array<ID3D11Buffer*, 1> cbsQuery =
+		{
+			queryConstantBuffer.Get(),
+		};
+		std::array<ID3D11Buffer*, 1> cbsPlayer =
 		{
 			player.constantBuffer.Get(),
 		};
-		renderer.Draw(player.vertexBuffer, spriteMaterial, srvs, cbs);
+
+
+		//Inverse the depth check so we only get pass results from query if we're overlapping an asteroid
+		renderer.SetDepthGreater();
+
+		renderer.BeginQuery(playerQuery[currentQueryIndex].Get());
+		renderer.Draw(player.vertexBuffer, spriteMaterial, srvs, cbsQuery);
+		renderer.EndQuery(playerQuery[currentQueryIndex].Get());
+
+		//back to "normal" depth
+		renderer.SetDepthLesser();
+		if (player.shouldDraw)
+		{
+			renderer.Draw(player.vertexBuffer, spriteMaterial, srvs, cbsPlayer);
+		}
+
 	}
-	
+	currentQueryIndex = (currentQueryIndex+1) % playerQuery.size();	
+
+	bool res = renderer.GetQueryResult(playerQuery[currentQueryIndex].Get(), playerQueryResults[currentQueryIndex]);
+	if (!res)
+	{
+		playerQueryResults[currentQueryIndex] = 0;
+	}
+
 }
