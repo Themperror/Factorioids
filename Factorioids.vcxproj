@@ -72,11 +72,11 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LibraryPath>$(SolutionDir)FreeImage\lib;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
-    <IncludePath>$(SolutionDir)FreeImage\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <IncludePath>$(SolutionDir)FreeImage\include;$(SolutionDir)src;$(SolutionDir)src\util;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LibraryPath>$(SolutionDir)FreeImage\lib;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
-    <IncludePath>$(SolutionDir)FreeImage\include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <IncludePath>$(SolutionDir)FreeImage\include;$(SolutionDir)src;$(SolutionDir)src\util;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -155,73 +155,73 @@
     </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="break.cpp" />
-    <ClCompile Include="fileutils.cpp" />
-    <ClCompile Include="game.cpp" />
-    <ClCompile Include="input.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="menu.cpp" />
-    <ClCompile Include="print.cpp" />
-    <ClCompile Include="renderer.cpp" />
-    <ClCompile Include="sprite.cpp" />
+    <ClCompile Include="src/util/break.cpp" />
+    <ClCompile Include="src/util/fileutils.cpp" />
+    <ClCompile Include="src/game.cpp" />
+    <ClCompile Include="src/input.cpp" />
+    <ClCompile Include="src/main.cpp" />
+    <ClCompile Include="src/menu.cpp" />
+    <ClCompile Include="src/util/print.cpp" />
+    <ClCompile Include="src/renderer.cpp" />
+    <ClCompile Include="src/sprite.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="asteroid.h" />
-    <ClInclude Include="break.h" />
-    <ClInclude Include="fileutils.h" />
-    <ClInclude Include="game.h" />
-    <ClInclude Include="input.h" />
-    <ClInclude Include="menu.h" />
-    <ClInclude Include="print.h" />
-    <ClInclude Include="renderer.h" />
-    <ClInclude Include="scene.h" />
-    <ClInclude Include="sprite.h" />
-    <ClInclude Include="timer.h" />
+    <ClInclude Include="src/asteroid.h" />
+    <ClInclude Include="src/util/break.h" />
+    <ClInclude Include="src/util/fileutils.h" />
+    <ClInclude Include="src/game.h" />
+    <ClInclude Include="src/input.h" />
+    <ClInclude Include="src/menu.h" />
+    <ClInclude Include="src/util/print.h" />
+    <ClInclude Include="src/renderer.h" />
+    <ClInclude Include="src/scene.h" />
+    <ClInclude Include="src/util/sprite.h" />
+    <ClInclude Include="src/util/timer.h" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="asteroid_PS.hlsl">
+    <FxCompile Include="shaders/asteroid_PS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
     </FxCompile>
-    <FxCompile Include="asteroid_VS.hlsl">
+    <FxCompile Include="shaders/asteroid_VS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
     </FxCompile>
-    <FxCompile Include="rocket_PS.hlsl">
+    <FxCompile Include="shaders/rocket_PS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
     </FxCompile>
-    <FxCompile Include="rocket_VS.hlsl">
+    <FxCompile Include="shaders/rocket_VS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
     </FxCompile>
-    <FxCompile Include="sprite_PS.hlsl">
+    <FxCompile Include="shaders/sprite_PS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
     </FxCompile>
-    <FxCompile Include="sprite_VS.hlsl">
+    <FxCompile Include="shaders/sprite_VS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
     </FxCompile>
-    <FxCompile Include="ui_PS.hlsl">
+    <FxCompile Include="shaders/ui_PS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
     </FxCompile>
-    <FxCompile Include="ui_VS.hlsl">
+    <FxCompile Include="shaders/ui_VS.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
