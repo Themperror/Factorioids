@@ -669,6 +669,6 @@ void Renderer::FlushLoading()
 
 void Renderer::Present()
 {
-	swapchain->Present(0,0);
+	swapchain->Present(1,0);
 }
 
