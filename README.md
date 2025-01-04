@@ -1,1 +1,1 @@
-![Screenshot](https://github.com/Themperror/Factorioids/blob/master/factorioids.png)
+![Screenshot](https://github.com/Themperror/Factorioids/blob/main/factorioids.png)
