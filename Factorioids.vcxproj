@@ -155,9 +155,7 @@
     </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="asteroid.cpp" />
     <ClCompile Include="break.cpp" />
-    <ClCompile Include="bullet.cpp" />
     <ClCompile Include="fileutils.cpp" />
     <ClCompile Include="game.cpp" />
     <ClCompile Include="input.cpp" />
@@ -165,14 +163,11 @@
     <ClCompile Include="menu.cpp" />
     <ClCompile Include="print.cpp" />
     <ClCompile Include="renderer.cpp" />
-    <ClCompile Include="scene.cpp" />
-    <ClCompile Include="ship.cpp" />
     <ClCompile Include="sprite.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="asteroid.h" />
     <ClInclude Include="break.h" />
-    <ClInclude Include="bullet.h" />
     <ClInclude Include="fileutils.h" />
     <ClInclude Include="game.h" />
     <ClInclude Include="input.h" />
@@ -180,7 +175,6 @@
     <ClInclude Include="print.h" />
     <ClInclude Include="renderer.h" />
     <ClInclude Include="scene.h" />
-    <ClInclude Include="ship.h" />
     <ClInclude Include="sprite.h" />
     <ClInclude Include="timer.h" />
   </ItemGroup>

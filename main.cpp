@@ -10,6 +10,8 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
+#include <filesystem>
+
 bool shouldQuit = false;
 Input input{};
 
@@ -36,6 +38,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		}
 	}
 
+	//Util::Print("0x%x 0x%x 0x%x", msg, wParam, lParam);
 	switch (msg)
 	{
 		case WM_CLOSE:
@@ -94,6 +97,57 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 #endif
 	Util::SetLogFile("log.txt");
 
+	size_t cmdLen = strlen(lpCmdLine);
+	const char* errMsg = "Missing Arguments, Please launch with the path to the Factorio folder.\nAttempt default path at 'C:/Program Files (x86)/Steam/steamapps/common/Factorio/'?";
+	if (cmdLen == 0 && MessageBoxA(0, errMsg, "Error!", MB_OKCANCEL) == 2)
+	{
+		return 0;
+	}
+
+	std::string factorioPath = "C:/Program Files (x86)/Steam/steamapps/common/Factorio/";
+	if (cmdLen != 0)
+	{
+		std::string cmdLine = lpCmdLine;
+		
+		std::transform(cmdLine.begin(),cmdLine.end(),cmdLine.begin(),[](char c){if(c == '/') return '\\'; return c;});
+
+		size_t firstQuote = cmdLine.find_first_of('\"');
+		if (firstQuote != std::string::npos)
+		{
+			size_t secondQuote = cmdLine.find_first_of('\"',1);
+			if (secondQuote == std::string::npos)
+			{
+				cmdLine = cmdLine.substr(firstQuote+1, cmdLine.size() - firstQuote - 1);
+			}
+			else
+			{
+				cmdLine = cmdLine.substr(firstQuote+1, secondQuote - 1);
+			}
+		}
+
+		factorioPath = cmdLine;
+
+		if (!std::filesystem::exists(factorioPath))
+		{
+			char buf[512];
+			sprintf_s(buf,512, "Failed to find Factorio at: %s", factorioPath.c_str());
+			MessageBoxA(0, buf, "Error!", MB_OK);
+			return 0;
+		}
+		
+		const char* spaceAgeFolder = "\\data\\space-age\\";
+		std::filesystem::path spaceAgePath = factorioPath;
+		spaceAgePath += spaceAgeFolder;
+
+		if (!std::filesystem::exists(spaceAgePath))
+		{
+			MessageBoxA(0, "Missing Space Age DLC, this is required to run", "Error!", MB_OK);
+			return 0;
+		}
+	}
+
+
+
 	//Set up Win32 window
 	{
 		WNDCLASSEX wndClass{};
@@ -114,10 +168,10 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 			L"Factorioids",
 			L"Factorioids",
 			WS_POPUP,
-			bSize.left,
-			bSize.top,
-			bSize.right,
-			bSize.bottom,
+			bSize.left + 200,
+			bSize.top + 200,
+			bSize.right - 400,
+			bSize.bottom - 400,
 			NULL, NULL, hInstance, NULL);
 
 		SetWindowLongPtrA(window, 0, 0);
@@ -230,6 +284,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 					if (!game.get())
 					{
 						game = std::make_unique<Game>();
+						game->SetFactorioPath(factorioPath);
 						game->Init(*renderer);
 					}
 

@@ -304,13 +304,13 @@ void Renderer::LoadingThread()
 
 void Renderer::Resize(size_t width, size_t height)
 {
-	swapchain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
+	swapchain->ResizeBuffers(0, static_cast<UINT>(width), static_cast<UINT>(height), DXGI_FORMAT_UNKNOWN, 0);
 	
 	D3D11_TEXTURE2D_DESC dsvTexDesc{};
 	dsvTexDesc.Format = DXGI_FORMAT_D32_FLOAT;
 	dsvTexDesc.BindFlags = D3D11_BIND_FLAG::D3D11_BIND_DEPTH_STENCIL;
-	dsvTexDesc.Height = height;
-	dsvTexDesc.Width = width;
+	dsvTexDesc.Height = static_cast<UINT>(height);
+	dsvTexDesc.Width = static_cast<UINT>(width);
 	dsvTexDesc.Usage = D3D11_USAGE_DEFAULT;
 	dsvTexDesc.MipLevels = 1;
 	dsvTexDesc.SampleDesc.Count = 1;
@@ -390,7 +390,7 @@ VertexBuffer Renderer::CreateVertexBuffer(size_t vertexAmount, size_t vertexCapa
 int Renderer::MakeTextureFrom(const std::string& filePath, bool isSrgb)
 {
 	textures.emplace_back();
-	int handle = textures.size() - 1;
+	int handle = static_cast<int>(textures.size() - 1);
 
 	loadLock.lock();
 	auto& tex = texturesToLoad.emplace_back();
@@ -405,7 +405,7 @@ int Renderer::MakeTextureFrom(const std::string& filePath, bool isSrgb)
 int Renderer::MakeTextureArrayFrom(const std::vector<std::string>& filePath, bool isSrgb)
 {
 	textures.emplace_back();
-	int handle = textures.size() - 1;
+	int handle = static_cast<int>(textures.size() - 1);
 
 	loadLock.lock();
 	auto& tex = texturesToLoad.emplace_back();
@@ -669,6 +669,6 @@ void Renderer::FlushLoading()
 
 void Renderer::Present()
 {
-	swapchain->Present(1,0);
+	swapchain->Present(0,0);
 }
 

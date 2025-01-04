@@ -43,6 +43,7 @@ struct Rocket : Sprite
 class Game : Scene
 {
 public:
+	void SetFactorioPath(const std::string& path);
 	virtual void Init(Renderer& renderer) final override;
 	virtual Scene::Status Update(double dt, Input& input, Renderer& renderer) final override;
 	void EraseAsteroid(size_t asteroidIndex);
@@ -51,6 +52,7 @@ public:
 	void SpawnAsteroid(AsteroidType::Type asteroidType, AsteroidCategory::Category asteroidCategory, XMFLOAT2 position = {});
 	virtual void Render(Renderer& renderer) final override;
 private:
+	std::string factorioPath;
 	Timer spawnTimer;
 	Timer rocketCooldownTimer;
 	Player player;

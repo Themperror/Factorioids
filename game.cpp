@@ -4,22 +4,29 @@
 #include "fileutils.h"
 #include "input.h"
 
-#include <algorithm>
+#include <filesystem>
 
 XMMATRIX ortho = XMMatrixOrthographicLH(1280, 720.0f, 0.0f, 10.0f);
 
+void Game::SetFactorioPath(const std::string& path)
+{
+	factorioPath = path;
+}
+
 void Game::Init(Renderer& renderer)
 {
+	srand(GetTickCount());
+	
 	std::array<const char*, AsteroidCategory::ENUM_MAX> categoryStrings = {"small", "medium", "big", "huge"};
 	std::array<const char*, AsteroidType::ENUM_MAX> typeStrings = {"carbonic", "metallic", "oxide", "promethium"};
 
+	std::filesystem::path basePath = factorioPath;
+	std::filesystem::path factorioAsteroidPath = basePath; factorioAsteroidPath += "/data/space-age/graphics/entity/asteroid/";
+	std::filesystem::path factorioAsteroidExplosionPath = basePath; factorioAsteroidExplosionPath += "/data/space-age/graphics/entity/asteroid-explosions/";
+	std::filesystem::path factorioMechPath = basePath; factorioMechPath += "/data/space-age/graphics/entity/mech-armor/mech-idle-air.png";
+	std::filesystem::path factorioRocketPath = basePath; factorioRocketPath += "/data/base/graphics/entity/rocket/";
 
-	const char* factorioAsteroidPath = "C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/space-age/graphics/entity/asteroid/";
-	const char* factorioAsteroidExplosionPath = "C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/space-age/graphics/entity/asteroid-explosions/";
-	const char* factorioMechPath = "C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/space-age/graphics/entity/mech-armor/mech-idle-air.png";
-	const char* factorioRocketPath = "C:/Program Files (x86)/Steam/steamapps/common/Factorio/data/base/graphics/entity/rocket/";
-
-	int playerTextureHandle= renderer.MakeTextureFrom(factorioMechPath, true);
+	int playerTextureHandle= renderer.MakeTextureFrom(factorioMechPath.generic_string(), true);
 
 	std::array<std::array<int, AsteroidType::ENUM_MAX>, AsteroidCategory::ENUM_MAX> asteroidTexturesDiffuseHandles;
 	std::array<std::array<int, AsteroidType::ENUM_MAX>, AsteroidCategory::ENUM_MAX> asteroidTexturesNormalHandles;
@@ -28,23 +35,17 @@ void Game::Init(Renderer& renderer)
 	char buf[512];
 
 	//cache the rocket texture
-	sprintf_s(buf, sizeof(buf), "%s%s", factorioRocketPath, "rocket.png");
-	int rocketColHandle = renderer.MakeTextureFrom(buf,true);
-	sprintf_s(buf, sizeof(buf), "%s%s", factorioRocketPath, "rocket-lights.png");
-	int rocketLightHandle = renderer.MakeTextureFrom(buf,true);
+	int rocketColHandle = renderer.MakeTextureFrom(factorioRocketPath.generic_string() + "rocket.png", true);
+	int rocketLightHandle = renderer.MakeTextureFrom(factorioRocketPath.generic_string() + "rocket-lights.png", true);
 
 	//cache the asteroid explosion textures
-	sprintf_s(buf, sizeof(buf), "%s%s", factorioAsteroidExplosionPath, "asteroid-explosion-small.png");
-	asteroidExplosionsTextureHandles[AsteroidCategory::Small] = renderer.MakeTextureFrom(buf, true);
+	asteroidExplosionsTextureHandles[AsteroidCategory::Small] = renderer.MakeTextureFrom(factorioAsteroidExplosionPath.generic_string() + "asteroid-explosion-small.png", true);
 	asteroidExplosionConstantData[AsteroidCategory::Small] = renderer.CreateSpriteConstantBuffer(6,6, 0.2f, ortho);
-	sprintf_s(buf, sizeof(buf), "%s%s", factorioAsteroidExplosionPath, "asteroid-explosion-medium.png");
-	asteroidExplosionsTextureHandles[AsteroidCategory::Medium] = renderer.MakeTextureFrom(buf, true);
+	asteroidExplosionsTextureHandles[AsteroidCategory::Medium] = renderer.MakeTextureFrom(factorioAsteroidExplosionPath.generic_string() + "asteroid-explosion-medium.png", true);
 	asteroidExplosionConstantData[AsteroidCategory::Medium] = asteroidExplosionConstantData[AsteroidCategory::Small];
-	sprintf_s(buf, sizeof(buf), "%s%s", factorioAsteroidExplosionPath, "asteroid-explosion-big.png");
-	asteroidExplosionsTextureHandles[AsteroidCategory::Big] = renderer.MakeTextureFrom(buf, true);
+	asteroidExplosionsTextureHandles[AsteroidCategory::Big] = renderer.MakeTextureFrom(factorioAsteroidExplosionPath.generic_string() + "asteroid-explosion-big.png", true);
 	asteroidExplosionConstantData[AsteroidCategory::Big] = asteroidExplosionConstantData[AsteroidCategory::Small];
-	sprintf_s(buf, sizeof(buf), "%s%s", factorioAsteroidExplosionPath, "asteroid-explosion-huge.png");
-	asteroidExplosionsTextureHandles[AsteroidCategory::Huge] = renderer.MakeTextureFrom(buf, true);
+	asteroidExplosionsTextureHandles[AsteroidCategory::Huge] = renderer.MakeTextureFrom(factorioAsteroidExplosionPath.generic_string() + "asteroid-explosion-huge.png", true);
 	asteroidExplosionConstantData[AsteroidCategory::Huge] = asteroidExplosionConstantData[AsteroidCategory::Small];
 
 
@@ -53,20 +54,21 @@ void Game::Init(Renderer& renderer)
 	std::vector<std::string> roughnessNames;
 
 	//cache all the asteroids
+	std::string asteroidPathStr = factorioAsteroidPath.generic_string();
 	for (size_t i = 0; i < AsteroidType::ENUM_MAX; i++)
 	{
 		for (size_t j = 0; j < AsteroidCategory::ENUM_MAX; j++)
 		{
-			sprintf_s(buf, sizeof(buf), "%s%s/%s/", factorioAsteroidPath, typeStrings[i], categoryStrings[j]);
+			sprintf_s(buf, sizeof(buf), "%s%s/%s/", asteroidPathStr.c_str(), typeStrings[i], categoryStrings[j]);
 			std::vector<std::string> files = Util::LoadFilesFromDirectory(buf);
 			files.erase(std::remove_if(files.begin(),files.end(),[](auto& a){return a.find("colour") == std::string::npos;}), files.end());
 			for (unsigned int k = 0; k < files.size(); k++)
 			{
-				sprintf_s(buf, sizeof(buf), "%s%s/%s/asteroid-%s-%s-colour-0%i.png", factorioAsteroidPath, typeStrings[i], categoryStrings[j], typeStrings[i], categoryStrings[j], k+1);
+				sprintf_s(buf, sizeof(buf), "%s%s/%s/asteroid-%s-%s-colour-0%i.png", asteroidPathStr.c_str(), typeStrings[i], categoryStrings[j], typeStrings[i], categoryStrings[j], k + 1);
 				diffuseNames.push_back(buf);
-				sprintf_s(buf, sizeof(buf), "%s%s/%s/asteroid-%s-%s-normal-0%i.png", factorioAsteroidPath, typeStrings[i], categoryStrings[j], typeStrings[i], categoryStrings[j], k+1);
+				sprintf_s(buf, sizeof(buf), "%s%s/%s/asteroid-%s-%s-normal-0%i.png", asteroidPathStr.c_str(), typeStrings[i], categoryStrings[j], typeStrings[i], categoryStrings[j], k+1);
 				normalNames.push_back(buf);
-				sprintf_s(buf, sizeof(buf), "%s%s/%s/asteroid-%s-%s-roughness-0%i.png", factorioAsteroidPath, typeStrings[i], categoryStrings[j], typeStrings[i], categoryStrings[j], k+1);
+				sprintf_s(buf, sizeof(buf), "%s%s/%s/asteroid-%s-%s-roughness-0%i.png", asteroidPathStr.c_str(), typeStrings[i], categoryStrings[j], typeStrings[i], categoryStrings[j], k+1);
 				roughnessNames.push_back(buf);
 			}
 
@@ -153,13 +155,6 @@ XMFLOAT2 ToUnifiedSpace(XMFLOAT2 pos)
 
 Scene::Status Game::Update(double dt, Input& input, Renderer& renderer)
 {
-	//for (int i = 0; i < asteroidGrid.size(); i++)
-	//{
-	//	for (int j = 0; j < asteroidGrid[i].size(); j++)
-	//	{
-	//		asteroidGrid[i][j].clear();
-	//	}
-	//}
 
 	if (spawnTimer.HasFinished())
 	{
@@ -179,32 +174,7 @@ Scene::Status Game::Update(double dt, Input& input, Renderer& renderer)
 			i--;
 		}
 	}
-	//for (size_t i = 0; i < asteroids.size(); i++)
-	//{
-	//	Asteroid& asteroid = asteroids[i];
-	//	int minX,maxX,minY,maxY;
-	//	XMFLOAT2 minPos = ToUnifiedSpace(asteroid.pos.x - asteroid.size, asteroid.pos.y - asteroid.size);
-	//	XMFLOAT2 maxPos = ToUnifiedSpace(asteroid.pos.x + asteroid.size, asteroid.pos.y + asteroid.size);
-	//
-	//	minX = (int)floor(minPos.x * static_cast<float>(asteroidGrid.size()));
-	//	maxX = (int)ceil(maxPos.x * static_cast<float>(asteroidGrid.size()));
-	//	minY = (int)floor(minPos.y * static_cast<float>(asteroidGrid[0].size()));
-	//	maxY = (int)ceil(maxPos.y * static_cast<float>(asteroidGrid[0].size()));
-	//
-	//	minX = std::clamp(minX,0, static_cast<int>(asteroidGrid.size()));
-	//	maxX = std::clamp(maxX,0, static_cast<int>(asteroidGrid.size()));
-	//	minY = std::clamp(minY,0, static_cast<int>(asteroidGrid[0].size()));
-	//	maxY = std::clamp(maxY,0, static_cast<int>(asteroidGrid[0].size()));
-	//
-	//	for (int y = minY; y < maxY; y++)
-	//	{
-	//		for (int x = minX; x < maxX; x++)
-	//		{
-	//			asteroidGrid[x][y].push_back(static_cast<int>(i));
-	//		}
-	//	}
-	//}
-
+	
 	for (size_t i = 0; i < asteroidExplosions.size(); i++)
 	{
 		asteroidExplosions[i].Update();		
@@ -268,20 +238,6 @@ Scene::Status Game::Update(double dt, Input& input, Renderer& renderer)
 		player.shouldDraw = true;
 	}
 
-
-
-	//XMFLOAT2 playerPosUnified = ToUnifiedSpace(player.position);
-	//playerPosUnified.x = std::clamp(playerPosUnified.x * static_cast<float>(asteroidGrid.size()),0.0f,static_cast<float>(asteroidGrid.size()));
-	//playerPosUnified.y = std::clamp(playerPosUnified.y * static_cast<float>(asteroidGrid[0].size()), 0.0f, static_cast<float>(asteroidGrid[0].size()));
-	//Util::Print("Player GridPos: %f  %f", playerPosUnified.x, playerPosUnified.y);
-	//auto& asteroidsInCell = asteroidGrid[static_cast<int>(playerPosUnified.x)][static_cast<int>(playerPosUnified.y)];
-	//if (asteroidsInCell.size())
-	//{
-	//	BreakAsteroid(asteroidsInCell[0]);
-	//}
-
-	//Util::Print("Query Results: [%08llu]  [%08llu]  [%08llu]", playerQueryResults[0], playerQueryResults[1], playerQueryResults[2]);
-
 	//Player rotation towards mouse
 	{
 		XMFLOAT2 mousePos = input.GetMousePos();
@@ -319,7 +275,6 @@ Scene::Status Game::Update(double dt, Input& input, Renderer& renderer)
 		}
 		player.SetSpriteRange(sector * 5, (sector * 5)+5);
 
-
 		if (input.GetKeyState(VK_SPACE) == KeyState::Down)
 		{
 			if (rocketCooldownTimer.HasFinished())
@@ -355,11 +310,11 @@ Scene::Status Game::Update(double dt, Input& input, Renderer& renderer)
 		Rocket& rocket = rockets[i];
 		rocket.Update();
 
-		rocket.velocity.x += rocket.acceleration.x * dt;
-		rocket.velocity.y += rocket.acceleration.y * dt;
+		rocket.velocity.x += static_cast<float>(rocket.acceleration.x * dt);
+		rocket.velocity.y += static_cast<float>(rocket.acceleration.y * dt);
 
-		rocket.position.x += rocket.velocity.x * dt;
-		rocket.position.y += rocket.velocity.y * dt;
+		rocket.position.x += static_cast<float>(rocket.velocity.x * dt);
+		rocket.position.y += static_cast<float>(rocket.velocity.y * dt);
 
 		for (size_t j = 0; j < rocket.occlusionResults.size(); j++)
 		{
@@ -376,7 +331,7 @@ Scene::Status Game::Update(double dt, Input& input, Renderer& renderer)
 					if (currentDist < dist)
 					{
 						dist = currentDist;
-						closestAsteroidIndex = x;
+						closestAsteroidIndex = static_cast<int>(x);
 					}
 				}
 
@@ -719,9 +674,12 @@ void Game::Render(Renderer& renderer)
 		//Inverse the depth check so we only get pass results from query if we're overlapping an asteroid
 		renderer.SetDepthGreater();
 
-		renderer.BeginQuery(player.occlusionQuery[currentQueryIndex].Get());
-		renderer.Draw(player.vertexBuffer, spriteMaterial, srvs, cbsQuery);
-		renderer.EndQuery(player.occlusionQuery[currentQueryIndex].Get());
+		if (player.shouldDraw)
+		{
+			renderer.BeginQuery(player.occlusionQuery[currentQueryIndex].Get());
+			renderer.Draw(player.vertexBuffer, spriteMaterial, srvs, cbsQuery);
+			renderer.EndQuery(player.occlusionQuery[currentQueryIndex].Get());
+		}
 
 		for (size_t i = 0; i < rockets.size(); i++)
 		{
