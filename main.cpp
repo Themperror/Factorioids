@@ -168,10 +168,10 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 			L"Factorioids",
 			L"Factorioids",
 			WS_POPUP,
-			bSize.left + 200,
-			bSize.top + 200,
-			bSize.right - 400,
-			bSize.bottom - 400,
+			bSize.left,
+			bSize.top,
+			bSize.right,
+			bSize.bottom,
 			NULL, NULL, hInstance, NULL);
 
 		SetWindowLongPtrA(window, 0, 0);
